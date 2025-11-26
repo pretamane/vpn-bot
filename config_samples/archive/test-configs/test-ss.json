@@ -1,0 +1,24 @@
+{
+    "log": {
+        "level": "debug",
+        "output": "ss-debug.log"
+    },
+    "inbounds": [
+        {
+            "type": "socks",
+            "tag": "socks-in",
+            "listen": "127.0.0.1",
+            "listen_port": 10808
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "shadowsocks",
+            "tag": "ss-out",
+            "server": "43.205.90.213",
+            "server_port": 8388,
+            "method": "chacha20-ietf-poly1305",
+            "password": "W+UUieKAlVMtz0JS4RA1u7o2b75dVjBF"
+        }
+    ]
+}

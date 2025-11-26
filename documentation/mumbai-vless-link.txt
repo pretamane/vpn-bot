@@ -1,0 +1,1 @@
+vless://e6a273ae-3adb-4a6e-af35-08320c3a06cd@43.205.90.213:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=ebn5poHxOL6U1lLVXiZmLxDIlF4I6ChnqZ7KtM00DlM&sid=32155302&type=tcp&headerType=none#Mumbai-India-AWS-Reality

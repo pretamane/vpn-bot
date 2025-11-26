@@ -1,0 +1,241 @@
+{
+  "log": {
+    "level": "info"
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "remote",
+        "address": "tcp://1.1.1.1",
+        "detour": "proxy"
+      },
+      {
+        "tag": "local",
+        "address": "local",
+        "detour": "direct"
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": [
+          "codeium.com",
+          "windsurf.ai",
+          "vscode-cdn.net",
+          "microsoft.com",
+          "visualstudio.com",
+          "googleapis.com",
+          "google.com",
+          "gstatic.com",
+          "gemini.com",
+          "generativelanguage.googleapis.com"
+        ],
+        "server": "local"
+      },
+      {
+        "ip_cidr": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16",
+          "127.0.0.0/8"
+        ],
+        "server": "local"
+      }
+    ],
+    "final": "remote",
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "inet4_address": "172.19.0.1/30",
+      "mtu": 1400,
+      "auto_route": false,
+      "strict_route": false,
+      "stack": "gvisor",
+      "sniff": true,
+      "sniff_override_destination": true,
+      "domain_strategy": "prefer_ipv4"
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "127.0.0.1",
+      "listen_port": 7897
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "selector",
+      "tag": "proxy",
+      "outbounds": [
+        "mumbai-reality-aws",
+        "thailand-outline",
+        "f09f87b7f09f87bae4bf84e7bd97e696af",
+        "outline",
+        "iam",
+        "yelinntunnn06",
+        "yelinntunnn08"
+      ],
+      "default": "mumbai-reality-aws"
+    },
+    {
+      "type": "vless",
+      "tag": "mumbai-reality-aws",
+      "server": "43.205.90.213",
+      "server_port": 443,
+      "uuid": "e3cb317e-7a1a-4d5e-9dac-5a20f27f385b",
+      "flow": "xtls-rprx-vision",
+      "routing_mark": 5555,
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "I0k4JpcwjQLPcEfOPaxclvp9lwcKOhL86LyDvjBIaj8",
+          "short_id": "794f772c"
+        }
+      }
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "thailand-outline",
+      "server": "119.59.127.129",
+      "server_port": 990,
+      "method": "chacha20-ietf-poly1305",
+      "password": "ARgvGZywA+gacgGV26Bvmu05+wZmRW/j+AdU+Z8Bt44="
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "f09f87b7f09f87bae4bf84e7bd97e696af",
+      "server": "78.40.116.11",
+      "server_port": 50589,
+      "method": "chacha20-ietf-poly1305",
+      "password": "e0AuSSE9kqrZnpK1RgcuPt"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "outline",
+      "server": "134.122.174.192",
+      "server_port": 12222,
+      "method": "chacha20-ietf-poly1305",
+      "password": "40f9b540-df11-47c0-ab3f-d25866ca03e8"
+    },
+    {
+      "type": "vmess",
+      "tag": "iam",
+      "server": "165.101.64.64",
+      "server_port": 52631,
+      "uuid": "a778c9f7-a472-43d5-d6e6-e05849d0601f",
+      "security": "auto"
+    },
+    {
+      "type": "vless",
+      "tag": "yelinntunnn06",
+      "server": "yelinntunnn06.accesscam.org",
+      "server_port": 2096,
+      "uuid": "f61a4285-7264-4d07-9408-7b9ba1922c26",
+      "tls": {
+        "enabled": true,
+        "server_name": "gaosir.unfeeling.sbs"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/Telegram@freecodes/?ed=2560",
+        "headers": {
+          "Host": "gaosir.unfeeling.sbs"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "yelinntunnn08",
+      "server": "yelinntunnn08.accesscam.org",
+      "server_port": 443,
+      "uuid": "f61a4285-7264-4d07-9408-7b9ba1922c26",
+      "tls": {
+        "enabled": true,
+        "server_name": "gaosir.unfeeling.sbs"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/Telegram🇨🇳@WangCai2/?ed=2560",
+        "headers": {
+          "Host": "gaosir.unfeeling.sbs"
+        }
+      }
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "rules": [
+      {
+        "domain_suffix": [
+          "codeium.com",
+          "windsurf.ai",
+          "vscode-cdn.net",
+          "microsoft.com",
+          "visualstudio.com",
+          "googleapis.com",
+          "google.com",
+          "gstatic.com",
+          "gemini.com",
+          "generativelanguage.googleapis.com"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "domain_keyword": [
+          "codeium",
+          "windsurf",
+          "gemini",
+          "googleapis"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "ip_cidr": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16",
+          "127.0.0.0/8",
+          "169.254.0.0/16",
+          "224.0.0.0/4",
+          "240.0.0.0/4",
+          "::1/128",
+          "fc00::/7",
+          "fe80::/10",
+          "ff00::/8",
+          "34.0.0.0/8",
+          "35.0.0.0/8",
+          "142.250.0.0/15",
+          "172.217.0.0/16",
+          "172.253.0.0/16",
+          "216.58.192.0/19"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "ip_cidr": [
+          "119.59.127.129/32",
+          "43.205.90.213/32"
+        ],
+        "outbound": "direct"
+      }
+    ],
+    "final": "proxy"
+  }
+}

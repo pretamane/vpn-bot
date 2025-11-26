@@ -1,0 +1,74 @@
+{
+    "log": {
+        "level": "info",
+        "output": "/var/log/singbox/access.log",
+        "timestamp": true
+    },
+    "inbounds": [
+        {
+            "type": "vless",
+            "tag": "vless-in",
+            "listen": "::",
+            "listen_port": 8443,
+            "users": [
+                {
+                    "uuid": "e3cb317e-7a1a-4d5e-9dac-5a20f27f385b",
+                    "flow": "xtls-rprx-vision"
+                },
+                {
+                    "uuid": "8b783a86-4926-4a64-817b-d67a8d2f4143",
+                    "flow": "xtls-rprx-vision",
+                    "name": "user_5402340818"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "www.microsoft.com",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "www.microsoft.com",
+                        "server_port": 443
+                    },
+                    "private_key": "2O0oNkex0x0QDO0SvXKmHRpJcD7JtCyi_1zOfwDxj3s",
+                    "short_id": [
+                        "794f772c"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "shadowsocks",
+            "tag": "ss-in",
+            "listen": "::",
+            "listen_port": 9388,
+            "method": "chacha20-ietf-poly1305",
+            "users": [
+                {
+                    "password": "W+UUieKAlVMtz0JS4RA1u7o2b75dVjBF",
+                    "name": "default-user"
+                }
+            ]
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "direct",
+            "tag": "direct"
+        }
+    ],
+    "experimental": {
+        "v2ray_api": {
+            "listen": "127.0.0.1:10085",
+            "stats": {
+                "enabled": true,
+                "inbounds": [
+                    "vless-in",
+                    "ss-in"
+                ],
+                "outbounds": [],
+                "users": []
+            }
+        }
+    }
+}

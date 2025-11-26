@@ -1,0 +1,37 @@
+{
+    "log": {
+        "level": "debug",
+        "timestamp": true
+    },
+    "inbounds": [
+        {
+            "type": "mixed",
+            "tag": "mixed-in",
+            "listen": "127.0.0.1",
+            "listen_port": 2080
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "vless",
+            "tag": "proxy",
+            "server": "43.205.90.213",
+            "server_port": 8443,
+            "uuid": "8b783a86-4926-4a64-817b-d67a8d2f4143",
+            "flow": "xtls-rprx-vision",
+            "tls": {
+                "enabled": true,
+                "server_name": "www.google.com",
+                "utls": {
+                    "enabled": true,
+                    "fingerprint": "chrome"
+                },
+                "reality": {
+                    "enabled": true,
+                    "public_key": "8PMOqMLABvJNa7UeZfFAH5WXiRAC6gpdWziIUWa2pEE",
+                    "short_id": "794f772c"
+                }
+            }
+        }
+    ]
+}

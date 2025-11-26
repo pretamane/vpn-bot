@@ -1,0 +1,32 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Database
+*.db
+src/db/*.db
+
+# Keys and Certificates
+*.pem
+*.key
+*.crt
+config_samples/*.pem
+
+# Logs
+*.log
+access.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

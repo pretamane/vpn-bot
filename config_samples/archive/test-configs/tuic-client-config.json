@@ -1,0 +1,22 @@
+{
+  "outbounds": [
+    {
+      "type": "tuic",
+      "tag": "tuic-mumbai",
+      "server": "43.205.90.213",
+      "server_port": 8443,
+      "uuid": "750af5a4-05e0-4ab2-80b9-c4d547874ce2",
+      "password": "75e4661b98916677967771e43a4fc321",
+      "congestion_control": "bbr",
+      "zero_rtt_handshake": true,
+      "udp_relay_mode": "native",
+      "tls": {
+        "enabled": true,
+        "insecure": true,
+        "alpn": [
+          "h3"
+        ]
+      }
+    }
+  ]
+}
