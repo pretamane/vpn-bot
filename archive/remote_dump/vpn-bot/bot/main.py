@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from db.database import add_user, get_user, init_db, get_active_key_count, get_user_stats, get_all_users, delete_user, activate_user, deactivate_user
-from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD, ADMIN_USERNAME
+from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD
 
 # Enable logging
 logging.basicConfig(
@@ -94,84 +94,64 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user = update.effective_user
     photo_file = await update.message.photo[-1].get_file()
     
-    # Download image temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
-        await photo_file.download_to_drive(tmp.name)
-        tmp_path = tmp.name
-        
-    try:
-        # 1. NSFW Detection
-        detector = get_nsfw_detector()
-        if detector:
+    # Download image temporarily for NSFW detection
+    detector = get_nsfw_detector()
+    if detector:
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                await photo_file.download_to_drive(tmp.name)
+                tmp_path = tmp.name
+            
             try:
+                # Run NSFW detection
                 predictions = detector.detect(tmp_path)
+                
+                # Check for explicit NSFW content
                 nsfw_classes = ['EXPOSED_GENITALIA', 'EXPOSED_BREAST_F', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS']
                 is_nsfw = any(
                     pred['class'] in nsfw_classes and pred['score'] > 0.6
                     for pred in predictions
                 )
+                
                 if is_nsfw:
-                    await update.message.reply_text("⚠️ *Inappropriate content detected.*", parse_mode="Markdown")
+                    await update.message.reply_text(
+                        "⚠️ *Inappropriate content detected.*\n\n"
+                        "Please upload a valid payment screenshot.\n\n"
+                        "If you believe this is an error, contact support.",
+                        parse_mode="Markdown"
+                    )
                     return
-            except Exception as e:
-                logger.error(f"NSFW detection failed: {e}")
-
-        # 2. OCR & Payment Validation
-        await update.message.reply_text("🔍 Verifying payment slip... (this may take a few seconds)")
-        
-        from services.ocr_service import ocr_service
-        from services.payment_validator import payment_validator, InvalidReceiptError
-        from db.database import is_transaction_used, add_transaction
-        
-        # Extract text
-        text_lines = ocr_service.extract_text(tmp_path)
-        
-        if not text_lines:
-            await update.message.reply_text("❌ Could not read text from image. Please send a clear screenshot.")
-            return
-            
-        # Validate receipt
-        try:
-            data = payment_validator.validate_receipt(text_lines)
-            
-            # Check for duplicates
-            if is_transaction_used(data['transaction_id']):
-                await update.message.reply_text(f"❌ Transaction ID `{data['transaction_id']}` has already been used!", parse_mode="Markdown")
-                return
-                
-            # Check amount (allow small margin of error or exact match)
-            if data['amount'] < 3000:
-                await update.message.reply_text(f"❌ Amount `{data['amount']}` is less than required 3,000 MMK.", parse_mode="Markdown")
-                return
-                
-            # Success! Record transaction
-            add_transaction(user.id, data['provider'], data['transaction_id'], data['amount'])
-            await update.message.reply_text(f"✅ Payment Verified!\nProvider: {data['provider']}\nTID: `{data['transaction_id']}`", parse_mode="Markdown")
-            
-        except InvalidReceiptError as e:
-            await update.message.reply_text(f"❌ Invalid Receipt: {str(e)}\n\nPlease make sure to upload a valid KBZ Pay or Wave Pay slip.")
-            return
+            finally:
+                # Clean up temp file
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
         except Exception as e:
-            logger.error(f"Validation error: {e}")
-            await update.message.reply_text("❌ Error verifying receipt. Please contact support.")
-            return
-
-    finally:
-        # Clean up temp file
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            logger.error(f"NSFW detection failed: {e}")
+            # Continue with payment processing if detection fails
     
-    # Key limit removed - users can buy as many keys as they want with valid payments
-    # Each payment must be unique (no duplicate transaction IDs)
+    await update.message.reply_text("[+] Payment received! Verifying...")
+    
+    # Simulate processing time
+    # In reality, this might be manual or async
+    
+    # Check if user has reached key limit
+    active_count = get_active_key_count(user.id)
+    if active_count >= MAX_KEYS_PER_USER:
+        await update.message.reply_text(
+            f"[!] You already have {active_count} active key(s).\n"
+            f"Maximum allowed: {MAX_KEYS_PER_USER}\n\n"
+            "Please use your existing key or contact support."
+        )
+        return
     
     # Generate UUID
     user_uuid = str(uuid.uuid4())
     
-    # Get user's protocol choice (default to SS if not set) - MUST be before add_user!
-    protocol = context.user_data.get('protocol', 'ss')
-    
     # Add to DB
-    if add_user(user_uuid, user.id, user.username, protocol, user.language_code, user.is_premium):
+    if add_user(user_uuid, user.id, user.username, user.language_code, user.is_premium):
+        # Get user's protocol choice (default to SS if not set)
+        protocol = context.user_data.get('protocol', 'ss')
+        
         # Only update Sing-Box config for VLESS (SS doesn't need individual users)
         if protocol == 'vless':
             from bot.config_manager import add_user_to_config
@@ -232,7 +212,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         message_func = update.message.reply_text
         
-    await message_func(f"Need help? Contact {ADMIN_USERNAME} for support!")
+    await message_func("Need help? Contact @admin for support!")
 
 async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /status command to show user stats."""
@@ -250,37 +230,16 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
         
     msg = "[Status] *Your VPN Status*\n\n"
-    
     for i, s in enumerate(stats, 1):
-        status_icon = "✅" if s['is_active'] else "❌"
+        status_icon = "[OK]" if s['is_active'] else "[Inactive]"
         usage_gb = s['daily_usage_bytes'] / (1024**3)
         limit_gb = s['data_limit_gb']
-        protocol = s.get('protocol', 'ss')
-        uuid = s['uuid']
         
-        # Generate protocol-specific key
-        if protocol == 'vless':
-            # Generate VLESS Link
-            vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#VPN-Bot-{user.first_name}-Key{i}"
-            protocol_name = "VLESS+REALITY"
-        else:
-            # Generate Shadowsocks Link
-            import base64
-            ss_credential = f"{SS_METHOD}:{uuid}"
-            ss_encoded = base64.b64encode(ss_credential.encode()).decode()
-            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#VPN-Bot-{user.first_name}-Key{i}"
-            protocol_name = "Shadowsocks"
-        
-        # Build status message
-        status_text = 'Active' if s['is_active'] else 'Inactive/Banned'
-        msg += f"*[Key {i}]* {protocol_name} {status_icon}\n"
-        msg += f"Status: {status_text}\n"
-        msg += f"Usage: `{usage_gb:.2f} GB` / `{limit_gb} GB`\n"
+        msg += f"[Key] *Key {i}* {status_icon}\n"
+        msg += f"ID: `{s['uuid']}`\n"
+        msg += f"Usage Today: `{usage_gb:.2f} GB` / `{limit_gb} GB`\n"
+        msg += f"Status: {'Active' if s['is_active'] else 'Banned/Inactive'}\n"
         msg += f"Expires: {s['expiry_date'][:10]}\n\n"
-        msg += f"*Your VPN Link:*\n`{vpn_link}`\n\n"
-        msg += "━━━━━━━━━━━━━━━\n\n"
-        
-    msg += "_💡 Tip: Copy the link above to import into your VPN app_"
         
     await message_func(msg, parse_mode='Markdown')
 

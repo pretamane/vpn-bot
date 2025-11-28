@@ -1,3 +1,11 @@
 python-telegram-bot>=20.0
 qrcode>=7.4
 pillow>=10.0
+nudenet
+pytesseract
+pillow
+numpy
+fastapi
+uvicorn
+python-multipart
+sqlite-web

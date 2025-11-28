@@ -19,40 +19,16 @@ def init_db():
             uuid TEXT PRIMARY KEY,
             telegram_id INTEGER,
             username TEXT,
-            protocol TEXT DEFAULT 'ss',
             expiry_date TIMESTAMP,
             data_limit_gb REAL DEFAULT 5.0,
             speed_limit_mbps REAL DEFAULT 12.0,
+            is_active BOOLEAN DEFAULT 1,
             is_active BOOLEAN DEFAULT 1,
             language_code TEXT,
             is_premium BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Migration: Add protocol column if it doesn't exist (for existing databases)
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN protocol TEXT DEFAULT 'ss'")
-        conn.commit()
-    except sqlite3.OperationalError:
-        # Column already exists
-        pass
-    
-    # Migration: Add language_code column if it doesn't exist
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN language_code TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        # Column already exists
-        pass
-    
-    # Migration: Add is_premium column if it doesn't exist
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT 0")
-        conn.commit()
-    except sqlite3.OperationalError:
-        # Column already exists
-        pass
     
     # Usage logs table (daily usage)
     c.execute('''
@@ -66,52 +42,18 @@ def init_db():
         )
     ''')
     
-    # Payment transactions table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS payment_transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            provider TEXT,
-            transaction_id TEXT UNIQUE,
-            amount REAL,
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
     conn.commit()
     conn.close()
 
-def add_transaction(user_id, provider, transaction_id, amount, status='approved'):
-    conn = get_db_connection()
-    c = conn.cursor()
-    try:
-        c.execute('''
-            INSERT INTO payment_transactions (user_id, provider, transaction_id, amount, status)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (user_id, provider, transaction_id, amount, status))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
-
-def is_transaction_used(transaction_id):
-    conn = get_db_connection()
-    row = conn.execute('SELECT id FROM payment_transactions WHERE transaction_id = ?', (transaction_id,)).fetchone()
-    conn.close()
-    return row is not None
-
-def add_user(uuid, telegram_id, username, protocol='ss', language_code=None, is_premium=False, expiry_days=30):
+def add_user(uuid, telegram_id, username, language_code=None, is_premium=False, expiry_days=30):
     conn = get_db_connection()
     c = conn.cursor()
     expiry_date = datetime.datetime.now() + datetime.timedelta(days=expiry_days)
     try:
         c.execute('''
-            INSERT INTO users (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date))
+            INSERT INTO users (uuid, telegram_id, username, language_code, is_premium, expiry_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (uuid, telegram_id, username, language_code, is_premium, expiry_date))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -152,16 +94,8 @@ def get_user_stats(telegram_id):
     for user in users:
         uuid = user['uuid']
         daily_usage = get_daily_usage(uuid)
-        
-        # Handle protocol column safely (might not exist in older databases)
-        try:
-            protocol = user['protocol'] if user['protocol'] else 'ss'
-        except (KeyError, IndexError):
-            protocol = 'ss'  # Default to ss for backward compatibility
-        
         stats.append({
             'uuid': uuid,
-            'protocol': protocol,
             'is_active': user['is_active'],
             'data_limit_gb': user['data_limit_gb'],
             'daily_usage_bytes': daily_usage,
@@ -169,6 +103,14 @@ def get_user_stats(telegram_id):
         })
     conn.close()
     return stats
+
+def deactivate_user(uuid):
+    """Deactivate a user's key."""
+    conn = get_db_connection()
+    conn.execute('UPDATE users SET is_active = 0 WHERE uuid = ?', (uuid,))
+    conn.commit()
+    conn.close()
+    return True
 
 def update_usage(uuid, bytes_added, date=None):
     if date is None:

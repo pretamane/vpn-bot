@@ -18,19 +18,14 @@ def save_config(config):
         with open(temp_path, 'w') as f:
             json.dump(config, f, indent=2)
         
-        # Move to actual location with sudo (bot runs as ubuntu user, not root)
-        subprocess.run(["sudo", "cp", temp_path, SINGBOX_CONFIG_PATH], check=True, timeout=5)
+        # Move to actual location (running as root, no sudo needed)
+        subprocess.run(["cp", temp_path, SINGBOX_CONFIG_PATH], check=True, timeout=5)
         subprocess.run(["rm", temp_path], check=True, timeout=5)
     except (subprocess.CalledProcessError, PermissionError) as e:
         print(f"Warning: Failed to save config to {SINGBOX_CONFIG_PATH}: {e}")
-        raise  # Re-raise to make errors visible
-    finally:
         # Clean up temp file if it exists
         if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
+            os.remove(temp_path)
 
 def add_user_to_config(uuid, email):
     config = load_config()
@@ -140,11 +135,10 @@ def remove_ss_user(password):
 def reload_service():
     print("Restarting Sing-Box service...")
     try:
-        subprocess.run(["sudo", "systemctl", "restart", "sing-box"], check=True, timeout=10)
+        subprocess.run(["systemctl", "restart", "sing-box"], check=True, timeout=10)
         print("Sing-Box service restarted.")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Warning: Failed to restart sing-box service: {e}")
-        raise  # Re-raise to make errors visible
+        print(f"Warning: Failed to restart sing-box service (expected if running locally): {e}")
 
 def remove_vless_user(uuid):
     """Remove a VLESS user by UUID."""

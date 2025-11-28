@@ -8,7 +8,6 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
-ADMIN_USERNAME = "@pretamane"  # Admin Telegram username for support
 
 # Payment Details
 KBZ_PAY_NUMBER = os.getenv("KBZ_PAY_NUMBER")
