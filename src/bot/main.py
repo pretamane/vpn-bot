@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from db.database import add_user, get_user, init_db, get_active_key_count, get_user_stats, get_all_users, delete_user, activate_user, deactivate_user
-from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, TUIC_PORT, VLESS_PLAIN_PORT, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD, ADMIN_USERNAME
+from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, SS_LEGACY_PORT, SS_LEGACY_PASSWORD, TUIC_PORT, VLESS_PLAIN_PORT, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD, ADMIN_USERNAME
 
 # Enable logging
 logging.basicConfig(
@@ -70,15 +70,16 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    protocol = query.data.split("_")[1]  # "ss", "vless", "tuic", "vlessplain"
+    protocol = query.data.split("_", 1)[1]  # "ss", "vless", "tuic", "vlessplain", "ss_legacy"
     context.user_data['protocol'] = protocol
     
     # Map protocol codes to display names
     protocol_map = {
-        "ss": "Shadowsocks",
-        "vless": "VLESS+REALITY (Unstable)",
-        "tuic": "TUIC",
-        "vlessplain": "Plain VLESS"
+        "ss": "Shadowsocks (Sing-Box)",
+        "vless": "VLESS+REALITY (Sing-Box)",
+        "tuic": "TUIC v5 (Sing-Box)",
+        "vlessplain": "Plain VLESS (Sing-Box)",
+        "ss_legacy": "Shadowsocks (Standalone)"
     }
     protocol_name = protocol_map.get(protocol, "Unknown")
     
@@ -93,11 +94,12 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send payment instructions and protocol selection."""
     keyboard = [
-        [InlineKeyboardButton("[VLESS] VLESS+REALITY (Unstable)", callback_data="protocol_vless")],
-        [InlineKeyboardButton("[SS] Shadowsocks (Stable)", callback_data="protocol_ss")],
-        [InlineKeyboardButton("[TUIC] TUIC (Low Latency)", callback_data="protocol_tuic")],
-        [InlineKeyboardButton("[VLESS] Plain VLESS (Standard)", callback_data="protocol_vlessplain")],
-        [InlineKeyboardButton("🔐 [TUIC] India Dedicated (Admin)", callback_data="protocol_admin_tuic")]
+        [InlineKeyboardButton("[VLESS] Reality (Sing-Box)", callback_data="protocol_vless")],
+        [InlineKeyboardButton("[SS] Shadowsocks (Sing-Box)", callback_data="protocol_ss")],
+        [InlineKeyboardButton("[TUIC] TUIC v5 (Sing-Box)", callback_data="protocol_tuic")],
+        [InlineKeyboardButton("[VLESS] Plain (Sing-Box)", callback_data="protocol_vlessplain")],
+        [InlineKeyboardButton("[SS] Shadowsocks (Standalone)", callback_data="protocol_ss_legacy")],
+        [InlineKeyboardButton("🔐 [TUIC] Admin (Standalone)", callback_data="protocol_admin_tuic")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -281,7 +283,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             elif protocol == 'vlessplain':
                 from bot.config_manager import add_vless_plain_user
                 add_vless_plain_user(user_uuid, key_tag)
-            # SS doesn't need individual user config updates
+            # SS and SS Legacy don't need individual user config updates (Legacy uses shared password)
         except Exception as e:
             logger.error(f"Failed to update config for {protocol}: {e}")
             await update.message.reply_text("[!] Account created but VPN activation failed. Contact support.")
@@ -305,6 +307,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             # Generate Plain VLESS Link (VLESS over TCP/TLS, must use cert's CN for SNI)
             vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
             protocol_name = "Plain VLESS"
+            
+        elif protocol == 'ss_legacy':
+            # Generate Legacy Shadowsocks Link (Shared Password)
+            import base64
+            ss_credential = f"{SS_METHOD}:{SS_LEGACY_PASSWORD}"
+            ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_LEGACY_PORT}#{key_tag}"
+            protocol_name = "Shadowsocks (Standalone)"
             
         else:  # Default to VLESS+REALITY
             # Generate VLESS+REALITY Link

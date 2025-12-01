@@ -27,6 +27,10 @@ SS_PORT = int(os.getenv("SS_PORT", "9388"))
 SS_METHOD = os.getenv("SS_METHOD", "chacha20-ietf-poly1305")
 SS_PASSWORD = os.getenv("SS_PASSWORD")
 
+# Legacy Shadowsocks (Standalone)
+SS_LEGACY_PORT = int(os.getenv("SS_LEGACY_PORT", "8388"))
+SS_LEGACY_PASSWORD = os.getenv("SS_LEGACY_PASSWORD", "W+UUieKAlVMtz0JS4RA1u7o2b75dVjBF")
+
 # Additional Protocols
 TUIC_PORT = int(os.getenv("TUIC_PORT", "2083"))
 VLESS_PLAIN_PORT = int(os.getenv("VLESS_PLAIN_PORT", "8444"))

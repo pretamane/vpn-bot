@@ -33,6 +33,8 @@ fi
 # 4. Restart Service
 echo "[4/4] Restarting service..."
 sudo systemctl restart "$SERVICE_NAME"
+echo "[4.5/4] Restarting API service..."
+sudo systemctl restart vpn-api.service
 
 # 5. Verify
 echo "✅ Update Complete!"
