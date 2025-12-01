@@ -26,8 +26,8 @@ git reset --hard origin/master # Force sync to match remote (WARNING: discards l
 echo "[3/4] Updating dependencies..."
 if [ -f "requirements.txt" ]; then
     # Assuming virtualenv is active or using system python if that's how it's set up
-    # Adjust python command as needed (e.g., /home/ubuntu/vpn-bot/venv/bin/pip)
-    pip3 install -r requirements.txt
+    # Using --break-system-packages as we are running in a dedicated VM for this bot
+    pip3 install -r requirements.txt --break-system-packages
 fi
 
 # 4. Restart Service
