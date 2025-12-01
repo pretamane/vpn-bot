@@ -302,8 +302,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             protocol_name = "TUIC"
             
         elif protocol == 'vlessplain':
-            # Generate Plain VLESS Link (VLESS over TCP/TLS, must use cert's CN for SNI)
-            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:8444?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            # Generate Plain VLESS Link (VLESS over TCP/TLS, no SNI required)
+            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:8444?security=tls&encryption=none&type=tcp#{key_tag}"
             protocol_name = "Plain VLESS"
             
         else:  # Default to VLESS+REALITY
