@@ -89,7 +89,7 @@ def get_all_keys():
         # Generate VPN link based on protocol
         if protocol == 'vless':
             vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
-        elif protocol == 'tuic':
+        elif protocol == 'tuic' or protocol == 'admin_tuic':
             # TUIC uses UUID as password
             vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{username}"
         elif protocol == 'vlessplain':
@@ -137,7 +137,7 @@ def get_key_by_uuid(uuid: str):
     # Generate VPN link
     if protocol == 'vless':
         vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
-    elif protocol == 'tuic':
+    elif protocol == 'tuic' or protocol == 'admin_tuic':
         vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{username}"
     elif protocol == 'vlessplain':
         vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{username}"
