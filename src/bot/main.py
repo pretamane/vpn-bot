@@ -53,11 +53,51 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup
     )
 
+async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle protocol selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    # Check if admin TUIC selected
+    if query.data == "protocol_admin_tuic":
+        context.user_data['protocol'] = 'admin_tuic'
+        context.user_data['awaiting_admin_password'] = True
+        await query.edit_message_text(
+            "🔐 **Admin-Only Protocol Selected**\n\n"
+            "This is ThawZin's dedicated India TUIC server.\n"
+            "Please enter the admin password:",
+            parse_mode="Markdown"
+        )
+        return
+    
+    protocol = query.data.split("_")[1]  # "ss", "vless", "tuic", "vlessplain"
+    context.user_data['protocol'] = protocol
+    
+    # Map protocol codes to display names
+    protocol_map = {
+        "ss": "Shadowsocks",
+        "vless": "VLESS+REALITY (Unstable)",
+        "tuic": "TUIC",
+        "vlessplain": "Plain VLESS"
+    }
+    protocol_name = protocol_map.get(protocol, "Unknown")
+    
+    await query.edit_message_text(
+        f"[+] Selected: {protocol_name}\n\n"
+        f"Please send 3,000 MMK to:\n\n"
+        f"KBZ: {KBZ_PAY_NUMBER}\n"
+        f"Wave: {WAVE_PAY_NUMBER}\n\n"
+        "[!] After payment, send a screenshot of success here."
+    )
+
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send payment instructions and protocol selection."""
     keyboard = [
-        [InlineKeyboardButton("[SS] Shadowsocks (Recommended)", callback_data="protocol_ss")],
-        [InlineKeyboardButton("[VLESS] VLESS+REALITY (Experimental)", callback_data="protocol_vless")]
+        [InlineKeyboardButton("[VLESS] VLESS+REALITY (Unstable)", callback_data="protocol_vless")],
+        [InlineKeyboardButton("[SS] Shadowsocks (Stable)", callback_data="protocol_ss")],
+        [InlineKeyboardButton("[TUIC] TUIC (Low Latency)", callback_data="protocol_tuic")],
+        [InlineKeyboardButton("[VLESS] Plain VLESS (Standard)", callback_data="protocol_vlessplain")],
+        [InlineKeyboardButton("🔐 [TUIC] India Dedicated (Admin)", callback_data="protocol_admin_tuic")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -72,22 +112,67 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup
     )
 
-async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle protocol selection."""
-    query = update.callback_query
-    await query.answer()
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle text messages (for admin password input)."""
+    user = update.effective_user
+    text = update.message.text
     
-    protocol = query.data.split("_")[1]  # "ss" or "vless"
-    context.user_data['protocol'] = protocol
+    # Check if awaiting admin password
+    if context.user_data.get('awaiting_admin_password'):
+        ADMIN_PASSWORD = "#ThawZin2k77!"
+        
+        if text == ADMIN_PASSWORD:
+            # Password correct - generate admin TUIC key
+            context.user_data['awaiting_admin_password'] = False
+            
+            import uuid as uuid_lib
+            user_uuid = str(uuid_lib.uuid4())
+            key_tag = f"{user.username or user.first_name}-AdminTUIC-{user.id}"
+            
+            # Generate TUIC link for legacy server on port 8443
+            # This is the dedicated India server (legacy tuic-server)
+            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:8443?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
+            
+            # Add to database (skip sing-box config as this uses legacy tuic-server)
+            from db.database import add_user
+            if add_user(user_uuid, user.id, user.username or user.first_name or f"User{user.id}", 
+                       'admin_tuic', user.language_code, user.is_premium):
+                
+                # Generate QR Code
+                import qrcode
+                import io
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(vpn_link)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                
+                bio = io.BytesIO()
+                img.save(bio)
+                bio.seek(0)
+                
+                await update.message.reply_text(
+                    f"✅ **Admin TUIC Key Generated!**\n\n"
+                    f"🔐 **Thailand's Dedicated India Server**\n"
+                    f"[Link] Copy link:\n`{vpn_link}`\n\n"
+                    f"[Tip] For personal use only!",
+                    parse_mode="Markdown"
+                )
+                await update.message.reply_photo(bio, caption="Scan this QR to import")
+            else:
+                await update.message.reply_text("❌ Error generating key. Contact support.")
+        else:
+            # Wrong password
+            await update.message.reply_text(
+                "❌ **Incorrect Password**\n\n"
+                "Access denied. This feature is admin-only.",
+                parse_mode="Markdown"
+            )
+            context.user_data['awaiting_admin_password'] = False
+        
+        return
     
-    protocol_name = "Shadowsocks" if protocol == "ss" else "VLESS+REALITY"
-    await query.edit_message_text(
-        f"[+] Selected: {protocol_name}\n\n"
-        f"Please send 3,000 MMK to:\n\n"
-        f"KBZ: {KBZ_PAY_NUMBER}\n"
-        f"Wave: {WAVE_PAY_NUMBER}\n\n"
-        "[!] After payment, send a screenshot of success here."
-    )
+    # Handle other text messages (if any)
+    await update.message.reply_text("Please use the /start command to see available options.")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle payment screenshot."""
@@ -167,20 +252,40 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Generate UUID
     user_uuid = str(uuid.uuid4())
     
+    # Calculate key index for tagging
+    current_stats = get_user_stats(user.id)
+    key_index = len(current_stats) + 1
+    
+    # Sanitize name for tag (remove special chars) with proper fallback
+    raw_name = user.username or user.first_name or f"User{user.id}"
+    safe_name = "".join(c for c in raw_name if c.isalnum())
+    if not safe_name: safe_name = "User"
+    key_tag = f"{safe_name}-Key{key_index}"
+    
     # Get user's protocol choice (default to SS if not set) - MUST be before add_user!
     protocol = context.user_data.get('protocol', 'ss')
     
+    # Ensure username is never None (use fallback for DB storage)
+    db_username = user.username or user.first_name or f"User{user.id}"
+    
     # Add to DB
-    if add_user(user_uuid, user.id, user.username, protocol, user.language_code, user.is_premium):
-        # Only update Sing-Box config for VLESS (SS doesn't need individual users)
-        if protocol == 'vless':
-            from bot.config_manager import add_user_to_config
-            try:
-                add_user_to_config(user_uuid, f"user_{user.id}")
-            except Exception as e:
-                logger.error(f"Failed to update config: {e}")
-                await update.message.reply_text("[!] Account created but VPN activation failed. Contact support.")
-                return
+    if add_user(user_uuid, user.id, db_username, protocol, user.language_code, user.is_premium):
+        # Update Sing-Box config based on protocol
+        try:
+            if protocol == 'vless':
+                from bot.config_manager import add_user_to_config
+                add_user_to_config(user_uuid, key_tag)
+            elif protocol == 'tuic':
+                from bot.config_manager import add_tuic_user
+                add_tuic_user(user_uuid, key_tag)
+            elif protocol == 'vlessplain':
+                from bot.config_manager import add_vless_plain_user
+                add_vless_plain_user(user_uuid, key_tag)
+            # SS doesn't need individual user config updates
+        except Exception as e:
+            logger.error(f"Failed to update config for {protocol}: {e}")
+            await update.message.reply_text("[!] Account created but VPN activation failed. Contact support.")
+            return
 
         # Generate link based on protocol
         if protocol == 'ss':
@@ -188,19 +293,22 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             import base64
             ss_credential = f"{SS_METHOD}:{user_uuid}"
             ss_encoded = base64.b64encode(ss_credential.encode()).decode()
-            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#VPN-Bot-{user.first_name}"
+            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#{key_tag}"
             protocol_name = "Shadowsocks"
             
-            # Add user to SS config for tracking
-            from bot.config_manager import add_ss_user
-            try:
-                add_ss_user(user_uuid, f"user_{user.id}")
-            except Exception as e:
-                logger.error(f"Failed to add SS user to config: {e}")
-                # Continue anyway - user can still connect with shared credentials
-        else:
-            # Generate VLESS Link
-            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#VPN-Bot-{user.first_name}"
+        elif protocol == 'tuic':
+            # Generate TUIC Link (must use cert's CN for SNI)
+            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:2083?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
+            protocol_name = "TUIC"
+            
+        elif protocol == 'vlessplain':
+            # Generate Plain VLESS Link (VLESS over TCP/TLS, must use cert's CN for SNI)
+            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:8444?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            protocol_name = "Plain VLESS"
+            
+        else:  # Default to VLESS+REALITY
+            # Generate VLESS+REALITY Link
+            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=randomized&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{key_tag}"
             protocol_name = "VLESS+REALITY"
         
         # Generate QR Code
@@ -482,23 +590,7 @@ def main() -> None:
     # Handle photos for payment verification
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     
-    # Handle text to guide user
-    # Handle text to guide user or verify password
-    async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        # Check if waiting for admin password
-        if context.user_data.get('waiting_for_admin_pass'):
-            if update.message.text == ADMIN_PASSWORD:
-                context.user_data['waiting_for_admin_pass'] = False
-                context.user_data['admin_authenticated'] = True
-                await update.message.reply_text("✅ Access Granted!")
-                await show_admin_dashboard(update, context)
-            else:
-                await update.message.reply_text("❌ Incorrect password. Access denied.")
-                context.user_data['waiting_for_admin_pass'] = False
-            return
-
-        await update.message.reply_text("Please send a **photo** of your payment receipt to get your key.", parse_mode="Markdown")
-
+    # Handle text messages (password verification, etc) - using function defined earlier
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)

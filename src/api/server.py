@@ -2,17 +2,20 @@ import sys
 import os
 import logging
 import shutil
+import base64
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 
 # Add src to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.ocr_service import ocr_service
 from services.payment_validator import payment_validator, InvalidReceiptError
 from db.database import get_db_connection
+from bot.config import SERVER_IP, SERVER_PORT, PUBLIC_KEY, SHORT_ID, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD
 
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
@@ -40,9 +43,109 @@ class ValidationResult(BaseModel):
     status: str
     message: str
 
+class KeyInfo(BaseModel):
+    uuid: str
+    telegram_id: int
+    username: Optional[str]
+    protocol: str
+    is_active: bool
+    created_at: str
+    expiry_date: str
+    vpn_link: str
+
 @app.get("/")
 def read_root():
-    return {"message": "VPN Bot API is running. Go to /docs for Swagger UI."}
+    return {"message": "VPN Bot API is running. Go to /docs for Swagger UI or /viewer for Key Viewer."}
+
+@app.get("/viewer", response_class=HTMLResponse)
+async def key_viewer():
+    """Serve the key viewer HTML interface."""
+    html_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "key_viewer.html")
+    try:
+        with open(html_path, 'r') as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Key viewer not found")
+
+@app.get("/keys")
+def get_all_keys():
+    """Get all VPN keys with their details."""
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT uuid, telegram_id, username, protocol, is_active, 
+               created_at, expiry_date, daily_usage_bytes, data_limit_gb
+        FROM users 
+        ORDER BY created_at DESC
+    ''').fetchall()
+    conn.close()
+    
+    keys = []
+    for row in rows:
+        uuid = row['uuid']
+        protocol = row['protocol']
+        username = row['username'] or f"User{row['telegram_id']}"
+        
+        # Generate VPN link based on protocol
+        if protocol == 'vless':
+            vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
+        else:  # shadowsocks
+            ss_credential = f"{SS_METHOD}:{uuid}"
+            ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#{username}"
+        
+        keys.append({
+            'uuid': uuid,
+            'telegram_id': row['telegram_id'],
+            'username': row['username'],
+            'protocol': protocol,
+            'is_active': bool(row['is_active']),
+            'created_at': row['created_at'],
+            'expiry_date': row['expiry_date'],
+            'vpn_link': vpn_link,
+            'usage_gb': row['daily_usage_bytes'] / (1024**3) if row['daily_usage_bytes'] else 0,
+            'limit_gb': row['data_limit_gb']
+        })
+    
+    return {"keys": keys, "count": len(keys)}
+
+@app.get("/keys/{uuid}")
+def get_key_by_uuid(uuid: str):
+    """Get a specific key by UUID."""
+    conn = get_db_connection()
+    row = conn.execute('''
+        SELECT uuid, telegram_id, username, protocol, is_active, 
+               created_at, expiry_date, daily_usage_bytes, data_limit_gb
+        FROM users 
+        WHERE uuid = ?
+    ''', (uuid,)).fetchone()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Key not found")
+    
+    protocol = row['protocol']
+    username = row['username'] or f"User{row['telegram_id']}"
+    
+    # Generate VPN link
+    if protocol == 'vless':
+        vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
+    else:
+        ss_credential = f"{SS_METHOD}:{uuid}"
+        ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+        vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#{username}"
+    
+    return {
+        'uuid': uuid,
+        'telegram_id': row['telegram_id'],
+        'username': row['username'],
+        'protocol': protocol,
+        'is_active': bool(row['is_active']),
+        'created_at': row['created_at'],
+        'expiry_date': row['expiry_date'],
+        'vpn_link': vpn_link,
+        'usage_gb': row['daily_usage_bytes'] / (1024**3) if row['daily_usage_bytes'] else 0,
+        'limit_gb': row['data_limit_gb']
+    }
 
 @app.post("/verify-slip", response_model=ValidationResult)
 async def verify_slip(file: UploadFile = File(...)):
@@ -98,3 +201,4 @@ def get_transactions():
     conn.close()
     
     return [dict(row) for row in rows]
+

@@ -106,6 +106,69 @@ def add_ss_user(password, name):
         print(f"Error adding SS user: {e}")
         return False
 
+def add_tuic_user(uuid, name):
+    """Add a user to the TUIC inbound."""
+    config = load_config()
+    
+    try:
+        # Find TUIC inbound
+        for inbound in config['inbounds']:
+            if inbound.get('tag') == 'tuic-in': # Use .get() for safety
+                # Initialize users array if it doesn't exist
+                if 'users' not in inbound:
+                    inbound['users'] = []
+
+                # Check if user exists
+                for user in inbound['users']:
+                    if user['uuid'] == uuid:
+                        return False # User already exists
+                
+                # Add user
+                inbound['users'].append({
+                    "uuid": uuid,
+                    "password": uuid, # TUIC uses password field often same as UUID
+                    "name": name
+                })
+                save_config(config)
+                reload_service()
+                return True
+        print("Warning: No TUIC inbound with tag 'tuic-in' found in config")
+        return False
+    except Exception as e:
+        print(f"Error adding TUIC user: {e}")
+        return False
+
+def add_vless_plain_user(uuid, name):
+    """Add a user to the Plain VLESS inbound."""
+    config = load_config()
+    
+    try:
+        # Find Plain VLESS inbound
+        for inbound in config['inbounds']:
+            if inbound.get('tag') == 'vless-plain-in': # Use .get() for safety
+                # Initialize users array if it doesn't exist
+                if 'users' not in inbound:
+                    inbound['users'] = []
+
+                # Check if user exists
+                for user in inbound['users']:
+                    if user['uuid'] == uuid:
+                        return False # User already exists
+                
+                # Add user
+                inbound['users'].append({
+                    "uuid": uuid,
+                    "name": name
+                })
+                save_config(config)
+                reload_service()
+                return True
+        print("Warning: No Plain VLESS inbound with tag 'vless-plain-in' found in config")
+        return False
+    except Exception as e:
+        print(f"Error adding Plain VLESS user: {e}")
+        return False
+
 def remove_ss_user(password):
     """Remove a Shadowsocks user by password (UUID)."""
     config = load_config()
@@ -138,13 +201,21 @@ def remove_ss_user(password):
         return False
 
 def reload_service():
-    print("Restarting Sing-Box service...")
+    """Gracefully reload sing-box without dropping connections."""
+    print("Reloading Sing-Box configuration...")
     try:
-        subprocess.run(["sudo", "systemctl", "restart", "sing-box"], check=True, timeout=10)
-        print("Sing-Box service restarted.")
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Warning: Failed to restart sing-box service: {e}")
-        raise  # Re-raise to make errors visible
+        # Use 'reload' instead of 'restart' to avoid breaking existing connections
+        subprocess.run(["sudo", "systemctl", "reload", "sing-box"], check=True, timeout=10)
+        print("Sing-Box configuration reloaded successfully.")
+    except subprocess.CalledProcessError:
+        # If reload fails, fall back to restart (some services don't support reload)
+        print("Reload failed, attempting restart...")
+        try:
+            subprocess.run(["sudo", "systemctl", "restart", "sing-box"], check=True, timeout=10)
+            print("Sing-Box service restarted.")
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Warning: Failed to reload/restart sing-box service: {e}")
+            raise  # Re-raise to make errors visible
 
 def remove_vless_user(uuid):
     """Remove a VLESS user by UUID."""

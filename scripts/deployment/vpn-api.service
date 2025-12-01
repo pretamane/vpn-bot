@@ -1,0 +1,15 @@
+[Unit]
+Description=VPN Bot API Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vpn-bot
+ExecStartPre=/bin/bash -c 'fuser -k 8000/tcp || true'
+ExecStart=/usr/bin/python3 -m uvicorn api.server:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
