@@ -28,12 +28,12 @@ fi
 echo ""
 
 # Test 2: Plain VLESS Port Connectivity (TCP)
-echo "[2/4] Testing Plain VLESS (Port 8443 TCP)..."
-if timeout 3 nc -zv $SERVER_IP 8443 2>&1 | grep -q "succeeded\|Connected"; then
-    echo -e "${GREEN}✓ Plain VLESS Port 8443: LISTENING${NC}"
+echo "[2/4] Testing Plain VLESS (Port 8444 TCP)..."
+if timeout 3 nc -zv $SERVER_IP 8444 2>&1 | grep -q "succeeded\|Connected"; then
+    echo -e "${GREEN}✓ Plain VLESS Port 8444: LISTENING${NC}"
     VLESS_PORT_OK=1
 else
-    echo -e "${RED}✗ Plain VLESS Port 8443: TIMEOUT${NC}"
+    echo -e "${RED}✗ Plain VLESS Port 8444: TIMEOUT${NC}"
     VLESS_PORT_OK=0
 fi
 echo ""

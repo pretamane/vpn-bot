@@ -27,6 +27,10 @@ SS_PORT = int(os.getenv("SS_PORT", "9388"))
 SS_METHOD = os.getenv("SS_METHOD", "chacha20-ietf-poly1305")
 SS_PASSWORD = os.getenv("SS_PASSWORD")
 
+# Additional Protocols
+TUIC_PORT = int(os.getenv("TUIC_PORT", "2083"))
+VLESS_PLAIN_PORT = int(os.getenv("VLESS_PLAIN_PORT", "8444"))
+
 # User Limits
 MAX_KEYS_PER_USER = int(os.getenv("MAX_KEYS_PER_USER", "1"))
 

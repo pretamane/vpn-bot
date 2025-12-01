@@ -4,7 +4,10 @@
 
 SERVER="ubuntu@43.205.90.213"
 KEY="/home/guest/tzdump/vpn-bot/keys/myanmar-vpn-key.pem"
-TEST_SCRIPT="/home/guest/tzdump/vpn-bot/tests/test_real_connections.py"
+# Use relative path from script location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+TEST_SCRIPT="$PROJECT_ROOT/tests/test_real_connections.py"
 
 echo "=========================================="
 echo "🔬 Real-World VPN Connection Test"

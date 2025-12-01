@@ -201,11 +201,11 @@ def test_vless_plain_real_connection():
         time.sleep(3)
         print(f"{Colors.GREEN}✓ Key generated{Colors.RESET}")
         
-        print(f"{Colors.YELLOW}[2/5] Testing TCP connection to port 8443...{Colors.RESET}")
+        print(f"{Colors.YELLOW}[2/5] Testing TCP connection to port 8444...{Colors.RESET}")
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
-            sock.connect((SERVER_IP, 8443))
+            sock.connect((SERVER_IP, 8444))
             print(f"{Colors.GREEN}✓ TCP connection established{Colors.RESET}")
             sock.close()  
         except socket.timeout:
@@ -224,7 +224,7 @@ def test_vless_plain_real_connection():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(10)
                 with context.wrap_socket(sock, server_hostname='www.microsoft.com') as ssock:
-                    ssock.connect((SERVER_IP, 8443))
+                    ssock.connect((SERVER_IP, 8444))
                     print(f"{Colors.GREEN}✓ TLS handshake successful{Colors.RESET}")
                     print(f"  Cipher: {ssock.cipher()[0]}")
                     print(f"  Protocol: {ssock.version()}")

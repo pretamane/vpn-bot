@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from db.database import add_user, get_user, init_db, get_active_key_count, get_user_stats, get_all_users, delete_user, activate_user, deactivate_user
-from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD, ADMIN_USERNAME
+from bot.config import BOT_TOKEN, KBZ_PAY_NUMBER, WAVE_PAY_NUMBER, SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_PORT, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, SS_PASSWORD, TUIC_PORT, VLESS_PLAIN_PORT, MAX_KEYS_PER_USER, ADMIN_ID, ADMIN_PASSWORD, ADMIN_USERNAME
 
 # Enable logging
 logging.basicConfig(
@@ -298,12 +298,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
         elif protocol == 'tuic':
             # Generate TUIC Link (must use cert's CN for SNI)
-            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:2083?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
             protocol_name = "TUIC"
             
         elif protocol == 'vlessplain':
             # Generate Plain VLESS Link (VLESS over TCP/TLS, must use cert's CN for SNI)
-            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:8444?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
             protocol_name = "Plain VLESS"
             
         else:  # Default to VLESS+REALITY

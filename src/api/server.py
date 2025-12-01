@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.ocr_service import ocr_service
 from services.payment_validator import payment_validator, InvalidReceiptError
 from db.database import get_db_connection
-from bot.config import SERVER_IP, SERVER_PORT, PUBLIC_KEY, SHORT_ID, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD
+from bot.config import SERVER_IP, SERVER_PORT, PUBLIC_KEY, SHORT_ID, SERVER_NAME, SS_SERVER, SS_PORT, SS_METHOD, TUIC_PORT, VLESS_PLAIN_PORT
 
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +88,11 @@ def get_all_keys():
         # Generate VPN link based on protocol
         if protocol == 'vless':
             vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
+        elif protocol == 'tuic':
+            # TUIC uses UUID as password
+            vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{username}"
+        elif protocol == 'vlessplain':
+            vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{username}"
         else:  # shadowsocks
             ss_credential = f"{SS_METHOD}:{uuid}"
             ss_encoded = base64.b64encode(ss_credential.encode()).decode()
@@ -127,8 +132,13 @@ def get_key_by_uuid(uuid: str):
     username = row['username'] or f"User{row['telegram_id']}"
     
     # Generate VPN link
+    # Generate VPN link
     if protocol == 'vless':
         vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{username}"
+    elif protocol == 'tuic':
+        vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{username}"
+    elif protocol == 'vlessplain':
+        vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{username}"
     else:
         ss_credential = f"{SS_METHOD}:{uuid}"
         ss_encoded = base64.b64encode(ss_credential.encode()).decode()
