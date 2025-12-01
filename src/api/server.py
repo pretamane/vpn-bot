@@ -72,10 +72,11 @@ def get_all_keys():
     """Get all VPN keys with their details."""
     conn = get_db_connection()
     rows = conn.execute('''
-        SELECT uuid, telegram_id, username, protocol, is_active, 
-               created_at, expiry_date, daily_usage_bytes, data_limit_gb
-        FROM users 
-        ORDER BY created_at DESC
+        SELECT u.uuid, u.telegram_id, u.username, u.protocol, u.is_active, 
+               u.created_at, u.expiry_date, u.data_limit_gb, ul.bytes_used as daily_usage_bytes
+        FROM users u
+        LEFT JOIN usage_logs ul ON u.uuid = ul.uuid AND ul.date = DATE('now')
+        ORDER BY u.created_at DESC
     ''').fetchall()
     conn.close()
     
@@ -118,10 +119,11 @@ def get_key_by_uuid(uuid: str):
     """Get a specific key by UUID."""
     conn = get_db_connection()
     row = conn.execute('''
-        SELECT uuid, telegram_id, username, protocol, is_active, 
-               created_at, expiry_date, daily_usage_bytes, data_limit_gb
-        FROM users 
-        WHERE uuid = ?
+        SELECT u.uuid, u.telegram_id, u.username, u.protocol, u.is_active, 
+               u.created_at, u.expiry_date, u.data_limit_gb, ul.bytes_used as daily_usage_bytes
+        FROM users u
+        LEFT JOIN usage_logs ul ON u.uuid = ul.uuid AND ul.date = DATE('now')
+        WHERE u.uuid = ?
     ''', (uuid,)).fetchone()
     conn.close()
     
