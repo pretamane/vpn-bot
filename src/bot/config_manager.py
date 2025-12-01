@@ -71,10 +71,33 @@ def add_user_to_config(uuid, email):
                 config['experimental']['v2ray_api']['stats']['users'] = stats_users
                 
         save_config(config)
+        
+        # VERIFY the key was actually added
+        verify_config = load_config()
+        found = False
+        if 'inbounds' in verify_config and len(verify_config['inbounds']) > 0:
+            for user in verify_config['inbounds'][0].get('users', []):
+                if user.get('uuid') == uuid:
+                    found = True
+                    break
+        
+        if not found:
+            error_msg = f"CRITICAL: VLESS user {email} NOT found in config after save!"
+            print(error_msg)
+            with open('/tmp/config_manager_errors.log', 'a') as log:
+                import datetime
+                log.write(f"{datetime.datetime.now()}: {error_msg}\n")
+            return False
+        
         reload_service()
+        print(f"✓ VLESS user {email} verified in config")
         return True
     except (KeyError, IndexError) as e:
-        print(f"Error updating config structure: {e}")
+        error_msg = f"Error updating VLESS config for {email}: {e}"
+        print(error_msg)
+        with open('/tmp/config_manager_errors.log', 'a') as log:
+            import datetime
+            log.write(f"{datetime.datetime.now()}: {error_msg}\n")
         return False
 
 def add_ss_user(password, name):
@@ -165,12 +188,36 @@ def add_tuic_user(uuid, name):
                     "name": name
                 })
                 save_config(config)
+                
+                # VERIFY the key was actually added
+                verify_config = load_config()
+                found = False
+                for inbound in verify_config.get('inbounds', []):
+                    if inbound.get('tag') == 'tuic-in':
+                        for user in inbound.get('users', []):
+                            if user.get('uuid') == uuid:
+                                found = True
+                                break
+                
+                if not found:
+                    error_msg = f"CRITICAL: TUIC user {name} NOT found in config after save!"
+                    print(error_msg)
+                    with open('/tmp/config_manager_errors.log', 'a') as log:
+                        import datetime
+                        log.write(f"{datetime.datetime.now()}: {error_msg}\n")
+                    return False
+                
                 reload_service()
+                print(f"✓ TUIC user {name} verified in config")
                 return True
         print("Warning: No TUIC inbound with tag 'tuic-in' found in config")
         return False
     except Exception as e:
-        print(f"Error adding TUIC user: {e}")
+        error_msg = f"Error adding TUIC user {name}: {e}"
+        print(error_msg)
+        with open('/tmp/config_manager_errors.log', 'a') as log:
+            import datetime
+            log.write(f"{datetime.datetime.now()}: {error_msg}\n")
         return False
 
 def add_vless_plain_user(uuid, name):
@@ -196,12 +243,36 @@ def add_vless_plain_user(uuid, name):
                     "name": name
                 })
                 save_config(config)
+                
+                # VERIFY the key was actually added
+                verify_config = load_config()
+                found = False
+                for inbound in verify_config.get('inbounds', []):
+                    if inbound.get('tag') == 'vless-plain-in':
+                        for user in inbound.get('users', []):
+                            if user.get('uuid') == uuid:
+                                found = True
+                                break
+                
+                if not found:
+                    error_msg = f"CRITICAL: Plain VLESS user {name} NOT found in config after save!"
+                    print(error_msg)
+                    with open('/tmp/config_manager_errors.log', 'a') as log:
+                        import datetime
+                        log.write(f"{datetime.datetime.now()}: {error_msg}\n")
+                    return False
+                
                 reload_service()
+                print(f"✓ Plain VLESS user {name} verified in config")
                 return True
         print("Warning: No Plain VLESS inbound with tag 'vless-plain-in' found in config")
         return False
     except Exception as e:
-        print(f"Error adding Plain VLESS user: {e}")
+        error_msg = f"Error adding Plain VLESS user {name}: {e}"
+        print(error_msg)
+        with open('/tmp/config_manager_errors.log', 'a') as log:
+            import datetime
+            log.write(f"{datetime.datetime.now()}: {error_msg}\n")
         return False
 
 def remove_ss_user(password):
