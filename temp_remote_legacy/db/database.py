@@ -1,0 +1,240 @@
+import sqlite3
+import datetime
+import os
+
+DB_PATH = os.path.join(os.path.dirname(__file__), 'vpn_bot.db')
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # Users table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            uuid TEXT PRIMARY KEY,
+            telegram_id INTEGER,
+            username TEXT,
+            protocol TEXT DEFAULT 'ss',
+            expiry_date TIMESTAMP,
+            data_limit_gb REAL DEFAULT 5.0,
+            speed_limit_mbps REAL DEFAULT 12.0,
+            is_active BOOLEAN DEFAULT 1,
+            language_code TEXT,
+            is_premium BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Migration: Add protocol column if it doesn't exist (for existing databases)
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN protocol TEXT DEFAULT 'ss'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+    
+    # Migration: Add language_code column if it doesn't exist
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN language_code TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+    
+    # Migration: Add is_premium column if it doesn't exist
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+    
+    # Usage logs table (daily usage)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS usage_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT,
+            date DATE,
+            bytes_used INTEGER DEFAULT 0,
+            FOREIGN KEY (uuid) REFERENCES users (uuid),
+            UNIQUE(uuid, date)
+        )
+    ''')
+    
+    # Payment transactions table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            provider TEXT,
+            transaction_id TEXT UNIQUE,
+            amount REAL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def add_transaction(user_id, provider, transaction_id, amount, status='approved'):
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            INSERT INTO payment_transactions (user_id, provider, transaction_id, amount, status)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, provider, transaction_id, amount, status))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def is_transaction_used(transaction_id):
+    conn = get_db_connection()
+    row = conn.execute('SELECT id FROM payment_transactions WHERE transaction_id = ?', (transaction_id,)).fetchone()
+    conn.close()
+    return row is not None
+
+def add_user(uuid, telegram_id, username, protocol='ss', language_code=None, is_premium=False, expiry_days=30):
+    conn = get_db_connection()
+    c = conn.cursor()
+    expiry_date = datetime.datetime.now() + datetime.timedelta(days=expiry_days)
+    try:
+        c.execute('''
+            INSERT INTO users (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def get_user(uuid):
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE uuid = ?', (uuid,)).fetchone()
+    conn.close()
+    return user
+
+def get_active_key_count(telegram_id):
+    """Get count of active keys for a Telegram user."""
+    conn = get_db_connection()
+    count = conn.execute(
+        'SELECT COUNT(*) as count FROM users WHERE telegram_id = ? AND is_active = 1',
+        (telegram_id,)
+    ).fetchone()['count']
+    conn.close()
+    return count
+
+def deactivate_user(uuid):
+    """Deactivate a user's key."""
+    conn = get_db_connection()
+    conn.execute('UPDATE users SET is_active = 0 WHERE uuid = ?', (uuid,))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_user_stats(telegram_id):
+    """Get detailed stats for all keys of a Telegram user."""
+    conn = get_db_connection()
+    users = conn.execute('SELECT * FROM users WHERE telegram_id = ?', (telegram_id,)).fetchall()
+    
+    stats = []
+    for user in users:
+        uuid = user['uuid']
+        daily_usage = get_daily_usage(uuid)
+        
+        # Handle protocol column safely (might not exist in older databases)
+        try:
+            protocol = user['protocol'] if user['protocol'] else 'ss'
+        except (KeyError, IndexError):
+            protocol = 'ss'  # Default to ss for backward compatibility
+        
+        stats.append({
+            'uuid': uuid,
+            'protocol': protocol,
+            'is_active': user['is_active'],
+            'data_limit_gb': user['data_limit_gb'],
+            'daily_usage_bytes': daily_usage,
+            'expiry_date': user['expiry_date']
+        })
+    conn.close()
+    return stats
+
+def update_usage(uuid, bytes_added, date=None):
+    if date is None:
+        date = datetime.date.today()
+    
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # Ensure record exists
+    c.execute('''
+        INSERT OR IGNORE INTO usage_logs (uuid, date, bytes_used)
+        VALUES (?, ?, 0)
+    ''', (uuid, date))
+    
+    # Update usage
+    c.execute('''
+        UPDATE usage_logs 
+        SET bytes_used = bytes_used + ?
+        WHERE uuid = ? AND date = ?
+    ''', (bytes_added, uuid, date))
+    
+    conn.commit()
+    conn.close()
+
+def get_daily_usage(uuid, date=None):
+    if date is None:
+        date = datetime.date.today()
+        
+    conn = get_db_connection()
+    row = conn.execute('''
+        SELECT bytes_used FROM usage_logs 
+        WHERE uuid = ? AND date = ?
+    ''', (uuid, date)).fetchone()
+    conn.close()
+    
+    return row['bytes_used'] if row else 0
+
+def get_all_users():
+    """Get all registered users."""
+    conn = get_db_connection()
+    users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return users
+
+def delete_user(uuid):
+    """Delete a user and their usage logs."""
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        c.execute('DELETE FROM usage_logs WHERE uuid = ?', (uuid,))
+        c.execute('DELETE FROM users WHERE uuid = ?', (uuid,))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+def activate_user(uuid):
+    """Activate a user's key."""
+    conn = get_db_connection()
+    conn.execute('UPDATE users SET is_active = 1 WHERE uuid = ?', (uuid,))
+    conn.commit()
+    conn.close()
+    return True
+
+if __name__ == '__main__':
+    init_db()
+    print("Database initialized.")
