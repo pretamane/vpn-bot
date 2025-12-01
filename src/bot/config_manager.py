@@ -19,10 +19,21 @@ def save_config(config):
             json.dump(config, f, indent=2)
         
         # Move to actual location with sudo (bot runs as ubuntu user, not root)
-        subprocess.run(["sudo", "cp", temp_path, SINGBOX_CONFIG_PATH], check=True, timeout=5)
+        result = subprocess.run(["sudo", "cp", temp_path, SINGBOX_CONFIG_PATH], 
+                                check=True, timeout=5, capture_output=True)
+        print(f"Config saved successfully to {SINGBOX_CONFIG_PATH}")
         subprocess.run(["rm", temp_path], check=True, timeout=5)
-    except (subprocess.CalledProcessError, PermissionError) as e:
-        print(f"Warning: Failed to save config to {SINGBOX_CONFIG_PATH}: {e}")
+        return True
+    except (subprocess.CalledProcessError, PermissionError, subprocess.TimeoutExpired) as e:
+        error_msg = f"CRITICAL: Failed to save config to {SINGBOX_CONFIG_PATH}: {e}"
+        print(error_msg)
+        # Log to a file for debugging
+        try:
+            with open('/tmp/config_manager_errors.log', 'a') as log:
+                import datetime
+                log.write(f"{datetime.datetime.now()}: {error_msg}\n")
+        except:
+            pass
         raise  # Re-raise to make errors visible
     finally:
         # Clean up temp file if it exists
@@ -100,10 +111,34 @@ def add_ss_user(password, name):
         })
         
         save_config(config)
+        
+        # VERIFY the key was actually added by reading config back
+        verify_config = load_config()
+        found = False
+        for inbound in verify_config.get('inbounds', []):
+            if inbound.get('type') == 'shadowsocks':
+                for user in inbound.get('users', []):
+                    if user.get('password') == password:
+                        found = True
+                        break
+        
+        if not found:
+            error_msg = f"CRITICAL: SS user {name} was NOT found in config after save!"
+            print(error_msg)
+            with open('/tmp/config_manager_errors.log', 'a') as log:
+                import datetime
+                log.write(f"{datetime.datetime.now()}: {error_msg}\n")
+            return False
+        
         reload_service()
+        print(f"✓ SS user {name} verified in config")
         return True
     except Exception as e:
-        print(f"Error adding SS user: {e}")
+        error_msg = f"Error adding SS user {name}: {e}"
+        print(error_msg)
+        with open('/tmp/config_manager_errors.log', 'a') as log:
+            import datetime
+            log.write(f"{datetime.datetime.now()}: {error_msg}\n")
         return False
 
 def add_tuic_user(uuid, name):
