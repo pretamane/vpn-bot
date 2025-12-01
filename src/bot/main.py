@@ -357,7 +357,11 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await message_func("You don't have any VPN keys yet. Use /buy to get one!")
         return
         
-    msg = "[Status] *Your VPN Status*\n\n"
+    # Header for the first message
+    header = "[Status] *Your VPN Status*\n\n"
+    
+    current_msg = header
+    MAX_LENGTH = 4000  # Leave some buffer
     
     for i, s in enumerate(stats, 1):
         status_icon = "✅" if s['is_active'] else "❌"
@@ -379,18 +383,31 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#VPN-Bot-{user.first_name}-Key{i}"
             protocol_name = "Shadowsocks"
         
-        # Build status message
+        # Build key info block
+        key_block = ""
         status_text = 'Active' if s['is_active'] else 'Inactive/Banned'
-        msg += f"*[Key {i}]* {protocol_name} {status_icon}\n"
-        msg += f"Status: {status_text}\n"
-        msg += f"Usage: `{usage_gb:.2f} GB` / `{limit_gb} GB`\n"
-        msg += f"Expires: {s['expiry_date'][:10]}\n\n"
-        msg += f"*Your VPN Link:*\n`{vpn_link}`\n\n"
-        msg += "━━━━━━━━━━━━━━━\n\n"
+        key_block += f"*[Key {i}]* {protocol_name} {status_icon}\n"
+        key_block += f"Status: {status_text}\n"
+        key_block += f"Usage: `{usage_gb:.2f} GB` / `{limit_gb} GB`\n"
+        key_block += f"Expires: {s['expiry_date'][:10]}\n\n"
+        key_block += f"*Your VPN Link:*\n`{vpn_link}`\n\n"
+        key_block += "━━━━━━━━━━━━━━━\n\n"
         
-    msg += "_💡 Tip: Copy the link above to import into your VPN app_"
+        # Check if adding this block would exceed limit
+        if len(current_msg) + len(key_block) > MAX_LENGTH:
+            # Send current chunk
+            await message_func(current_msg, parse_mode='Markdown')
+            # Start new chunk
+            current_msg = key_block
+        else:
+            current_msg += key_block
+            
+    # Add footer to the last message
+    current_msg += "_💡 Tip: Copy the link above to import into your VPN app_"
         
-    await message_func(msg, parse_mode='Markdown')
+    # Send the final (or only) chunk
+    if current_msg:
+        await message_func(current_msg, parse_mode='Markdown')
 
 async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle main menu button clicks."""

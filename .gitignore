@@ -33,6 +33,7 @@ Thumbs.db
 
 # Local Dev Scripts
 reproduce_issue.py
+reproduce_long_msg.py
 test_status_handler.py
 REALITY_CONFIG_UPDATE.txt
 
