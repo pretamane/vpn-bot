@@ -13,7 +13,7 @@ echo "Press Ctrl+C to disconnect."
 echo ""
 
 # Tunnel both ports: 8081 (database) and 8000 (API/key viewer)
-ssh -o StrictHostKeyChecking=no -i "$KEY_PATH" -N \
+ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=2880 -o StrictHostKeyChecking=no -i "$KEY_PATH" -N \
     -L 8081:127.0.0.1:8081 \
     -L 8000:127.0.0.1:8000 \
     "$REMOTE_HOST"

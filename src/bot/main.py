@@ -75,31 +75,31 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
     
     # Map protocol codes to display names
     protocol_map = {
-        "ss": "Shadowsocks (Sing-Box)",
-        "vless": "VLESS+REALITY (Sing-Box)",
-        "tuic": "TUIC v5 (Sing-Box)",
-        "vlessplain": "Plain VLESS (Sing-Box)",
-        "ss_legacy": "Shadowsocks (Standalone)"
+        "ss": "Shadowsocks (9388) -> Sing-Box",
+        "vless": "VLESS Reality (443) -> Sing-Box",
+        "tuic": "TUIC v5 (2083) -> Sing-Box",
+        "vlessplain": "VLESS + TLS (8444) -> Sing-Box",
+        "ss_legacy": "Shadowsocks (8388) -> Sing-Box"
     }
     protocol_name = protocol_map.get(protocol, "Unknown")
     
     await query.edit_message_text(
-        f"[+] Selected: {protocol_name}\n\n"
+        f"Selected: {protocol_name}\n\n"
         f"Please send 3,000 MMK to:\n\n"
         f"KBZ: {KBZ_PAY_NUMBER}\n"
         f"Wave: {WAVE_PAY_NUMBER}\n\n"
-        "[!] After payment, send a screenshot of success here."
+        "After payment, send a screenshot of success here."
     )
 
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send payment instructions and protocol selection."""
     keyboard = [
-        [InlineKeyboardButton("[VLESS] Reality (Sing-Box)", callback_data="protocol_vless")],
-        [InlineKeyboardButton("[SS] Shadowsocks (Sing-Box)", callback_data="protocol_ss")],
-        [InlineKeyboardButton("[TUIC] TUIC v5 (Sing-Box)", callback_data="protocol_tuic")],
-        [InlineKeyboardButton("[VLESS] Plain (Sing-Box)", callback_data="protocol_vlessplain")],
-        [InlineKeyboardButton("[SS] Shadowsocks (Standalone)", callback_data="protocol_ss_legacy")],
-        [InlineKeyboardButton("🔐 [TUIC] Admin (Standalone)", callback_data="protocol_admin_tuic")]
+        [InlineKeyboardButton("VLESS Reality (443) -> Sing-Box", callback_data="protocol_vless")],
+        [InlineKeyboardButton("Shadowsocks (9388) -> Sing-Box", callback_data="protocol_ss")],
+        [InlineKeyboardButton("TUIC v5 (2083) -> Sing-Box", callback_data="protocol_tuic")],
+        [InlineKeyboardButton("VLESS + TLS (8444) -> Sing-Box", callback_data="protocol_vlessplain")],
+        [InlineKeyboardButton("Shadowsocks (8388) -> Sing-Box", callback_data="protocol_ss_legacy")],
+        [InlineKeyboardButton("Admin TUIC (8443) -> tuic-server", callback_data="protocol_admin_tuic")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -198,13 +198,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     for pred in predictions
                 )
                 if is_nsfw:
-                    await update.message.reply_text("⚠️ *Inappropriate content detected.*", parse_mode="Markdown")
+                    await update.message.reply_text("Inappropriate content detected.", parse_mode="Markdown")
                     return
             except Exception as e:
                 logger.error(f"NSFW detection failed: {e}")
 
         # 2. OCR & Payment Validation
-        await update.message.reply_text("🔍 Verifying payment slip... (this may take a few seconds)")
+        await update.message.reply_text("Verifying payment slip... (this may take a few seconds)")
         
         from services.ocr_service import ocr_service
         from services.payment_validator import payment_validator, InvalidReceiptError
@@ -214,33 +214,42 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         text_lines = ocr_service.extract_text(tmp_path)
         
         if not text_lines:
-            await update.message.reply_text("❌ Could not read text from image. Please send a clear screenshot.")
+            await update.message.reply_text("Could not read text from image. Please send a clear screenshot.")
             return
             
         # Validate receipt
         try:
             data = payment_validator.validate_receipt(text_lines)
             
-            # Check for duplicates
-            if is_transaction_used(data['transaction_id']):
-                await update.message.reply_text(f"❌ Transaction ID `{data['transaction_id']}` has already been used!", parse_mode="Markdown")
-                return
-                
-            # Check amount (allow small margin of error or exact match)
-            if data['amount'] < 3000:
-                await update.message.reply_text(f"❌ Amount `{data['amount']}` is less than required 3,000 MMK.", parse_mode="Markdown")
-                return
-                
-            # Success! Record transaction
-            add_transaction(user.id, data['provider'], data['transaction_id'], data['amount'])
-            await update.message.reply_text(f"✅ Payment Verified!\nProvider: {data['provider']}\nTID: `{data['transaction_id']}`", parse_mode="Markdown")
+            TEST_SLIP_ID = "01003984021770423212"
+            
+            if data['transaction_id'] == TEST_SLIP_ID:
+                await update.message.reply_text(
+                    f"The Test Banking Slip is being utilized.\n"
+                    f"Transaction ID: {data['transaction_id']}\n"
+                    f"User: {user.username or user.first_name}"
+                )
+            else:
+                # Check for duplicates
+                if is_transaction_used(data['transaction_id']):
+                    await update.message.reply_text(f"Transaction ID `{data['transaction_id']}` has already been used!", parse_mode="Markdown")
+                    return
+                    
+                # Check amount (allow small margin of error or exact match)
+                if data['amount'] < 3000:
+                    await update.message.reply_text(f"Amount `{data['amount']}` is less than required 3,000 MMK.", parse_mode="Markdown")
+                    return
+                    
+                # Success! Record transaction
+                add_transaction(user.id, data['provider'], data['transaction_id'], data['amount'])
+                await update.message.reply_text(f"Payment Verified!\nProvider: {data['provider']}\nTID: `{data['transaction_id']}`", parse_mode="Markdown")
             
         except InvalidReceiptError as e:
-            await update.message.reply_text(f"❌ Invalid Receipt: {str(e)}\n\nPlease make sure to upload a valid KBZ Pay or Wave Pay slip.")
+            await update.message.reply_text(f"Invalid Receipt: {str(e)}\n\nPlease make sure to upload a valid KBZ Pay or Wave Pay slip.")
             return
         except Exception as e:
             logger.error(f"Validation error: {e}")
-            await update.message.reply_text("❌ Error verifying receipt. Please contact support.")
+            await update.message.reply_text("Error verifying receipt. Please contact support.")
             return
 
     finally:
@@ -286,7 +295,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             # SS and SS Legacy don't need individual user config updates (Legacy uses shared password)
         except Exception as e:
             logger.error(f"Failed to update config for {protocol}: {e}")
-            await update.message.reply_text("[!] Account created but VPN activation failed. Contact support.")
+            await update.message.reply_text("Account created but VPN activation failed. Contact support.")
             return
 
         # Generate link based on protocol

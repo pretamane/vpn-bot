@@ -43,4 +43,4 @@ remote_diff.txt
 ssm_output.txt
 compare_files.py
 ssm-trust-policy.json
-scripts/setup_remote_test.py
+
