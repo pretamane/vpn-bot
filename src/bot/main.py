@@ -363,10 +363,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             f"[Key] Your {protocol_name} key is ready!\n\n"
             f"[Link] Copy link:\n`{vpn_link}`\n\n"
             f"[Tip] Only use on 1 device!",
-            parse_mode="Markdown",
-            reply_markup=reply_markup
+            parse_mode="Markdown"
         )
-        await update.message.reply_photo(bio, caption="Scan this QR to import")
+        await update.message.reply_photo(bio, caption="Scan this QR to import", reply_markup=reply_markup)
         
     else:
         await update.message.reply_text("[X] Error generating key. Please contact support.")
