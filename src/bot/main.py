@@ -133,7 +133,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             
             # Generate TUIC link for legacy server on port 8443
             # This is the dedicated India server (legacy tuic-server)
-            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:8443?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:8443?congestion_control=bbr&alpn=h3&sni=www.microsoft.com&allow_insecure=1#{key_tag}"
             
             # Add to database (skip sing-box config as this uses legacy tuic-server)
             from db.database import add_user

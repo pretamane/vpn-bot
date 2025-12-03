@@ -155,10 +155,10 @@ def _add_ss_user_internal(password, name):
     config = load_config()
     
     try:
-        # Find Shadowsocks inbound (type: shadowsocks)
+        # Find Shadowsocks inbound (tag: ss-in)
         ss_inbound = None
         for inbound in config.get('inbounds', []):
-            if inbound.get('type') == 'shadowsocks':
+            if inbound.get('tag') == 'ss-in':
                 ss_inbound = inbound
                 break
         
@@ -357,10 +357,10 @@ def _remove_ss_user_internal(password):
     config = load_config()
     
     try:
-        # Find Shadowsocks inbound
+        # Find Shadowsocks inbound (tag: ss-in)
         ss_inbound = None
         for inbound in config.get('inbounds', []):
-            if inbound.get('type') == 'shadowsocks':
+            if inbound.get('tag') == 'ss-in':
                 ss_inbound = inbound
                 break
         
