@@ -11,3 +11,4 @@ python-multipart
 sqlite-web
 fastapi
 uvicorn
+google-auth

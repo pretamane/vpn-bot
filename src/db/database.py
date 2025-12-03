@@ -53,6 +53,14 @@ def init_db():
     except sqlite3.OperationalError:
         # Column already exists
         pass
+
+    # Migration: Add email column if it doesn't exist
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
     
     # Usage logs table (daily usage)
     c.execute('''
@@ -103,15 +111,15 @@ def is_transaction_used(transaction_id):
     conn.close()
     return row is not None
 
-def add_user(uuid, telegram_id, username, protocol='ss', language_code=None, is_premium=False, expiry_days=30):
+def add_user(uuid, telegram_id, username, protocol='ss', language_code=None, is_premium=False, expiry_days=30, email=None):
     conn = get_db_connection()
     c = conn.cursor()
     expiry_date = datetime.datetime.now() + datetime.timedelta(days=expiry_days)
     try:
         c.execute('''
-            INSERT INTO users (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date))
+            INSERT INTO users (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date, email)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (uuid, telegram_id, username, protocol, language_code, is_premium, expiry_date, email))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -122,6 +130,12 @@ def add_user(uuid, telegram_id, username, protocol='ss', language_code=None, is_
 def get_user(uuid):
     conn = get_db_connection()
     user = conn.execute('SELECT * FROM users WHERE uuid = ?', (uuid,)).fetchone()
+    conn.close()
+    return user
+
+def get_user_by_email(email):
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     conn.close()
     return user
 
