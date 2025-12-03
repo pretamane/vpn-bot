@@ -1,0 +1,33 @@
+{
+  "log": {
+    "level": "debug",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "127.0.0.1",
+      "listen_port": 10800
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "tuic",
+      "tag": "tuic-out",
+      "server": "43.205.90.213",
+      "server_port": 8443,
+      "uuid": "ceb7f843-9082-4346-a8a1-d06bcbc1c87f",
+      "password": "ceb7f843-9082-4346-a8a1-d06bcbc1c87f",
+      "congestion_control": "bbr",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "insecure": true,
+        "alpn": [
+          "h3"
+        ]
+      }
+    }
+  ]
+}

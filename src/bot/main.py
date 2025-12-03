@@ -77,7 +77,7 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
     protocol_map = {
         "ss": "Shadowsocks (9388) -> Sing-Box",
         "vless": "VLESS Reality (443) -> Sing-Box",
-        "tuic": "TUIC v5 (2083) -> Sing-Box",
+        "tuic": "TUIC-Server (2083) -> Sing-Box",
         "vlessplain": "VLESS + TLS (8444) -> Sing-Box",
         "ss_legacy": "Shadowsocks (8388) -> Sing-Box"
     }
@@ -95,11 +95,11 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send payment instructions and protocol selection."""
     keyboard = [
         [InlineKeyboardButton("VLESS Reality (443) -> Sing-Box", callback_data="protocol_vless")],
-        [InlineKeyboardButton("Shadowsocks (9388) -> Sing-Box", callback_data="protocol_ss")],
-        [InlineKeyboardButton("TUIC v5 (2083) -> Sing-Box", callback_data="protocol_tuic")],
+        [InlineKeyboardButton("ShadowSocks (9388) -> Sing-Box", callback_data="protocol_ss")],
+        [InlineKeyboardButton("TUIC-Server (2083) -> Sing-Box", callback_data="protocol_tuic")],
         [InlineKeyboardButton("VLESS + TLS (8444) -> Sing-Box", callback_data="protocol_vlessplain")],
-        [InlineKeyboardButton("Shadowsocks (8388) -> Sing-Box", callback_data="protocol_ss_legacy")],
-        [InlineKeyboardButton("Admin TUIC (8443) -> tuic-server", callback_data="protocol_admin_tuic")]
+        [InlineKeyboardButton("ShadowSocks (8388) -> Sing-Box", callback_data="protocol_ss_legacy")],
+        [InlineKeyboardButton("Admin TUIC (8443) -> TUIC-Server", callback_data="protocol_admin_tuic")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -292,7 +292,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             elif protocol == 'vlessplain':
                 from bot.config_manager import add_vless_plain_user
                 add_vless_plain_user(user_uuid, key_tag)
-            # SS and SS Legacy don't need individual user config updates (Legacy uses shared password)
+            elif protocol == 'ss':
+                from bot.config_manager import add_ss_user
+                add_ss_user(user_uuid, key_tag)
+            elif protocol == 'admin_tuic':
+                from bot.config_manager import add_admin_tuic_user
+                add_admin_tuic_user(user_uuid, key_tag)
+            # SS Legacy uses shared password, no config update needed
         except Exception as e:
             logger.error(f"Failed to update config for {protocol}: {e}")
             await update.message.reply_text("Account created but VPN activation failed. Contact support.")
@@ -309,7 +315,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
         elif protocol == 'tuic':
             # Generate TUIC Link (must use cert's CN for SNI)
-            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"tuic://{user_uuid}:{user_uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com&allow_insecure=1#{key_tag}"
             protocol_name = "TUIC"
             
         elif protocol == 'vlessplain':
@@ -389,17 +395,48 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         protocol = s.get('protocol', 'ss')
         uuid = s['uuid']
         
+        # Generate key tag
+        raw_name = user.username or user.first_name or f"User{user.id}"
+        safe_name = "".join(c for c in raw_name if c.isalnum())
+        if not safe_name: safe_name = "User"
+        key_tag = f"{safe_name}-Key{i}"
+
+        # Generate protocol-specific key
         # Generate protocol-specific key
         if protocol == 'vless':
-            # Generate VLESS Link
-            vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#VPN-Bot-{user.first_name}-Key{i}"
+            # Generate VLESS+REALITY Link
+            vpn_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=randomized&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{key_tag}"
             protocol_name = "VLESS+REALITY"
+            
+        elif protocol == 'tuic':
+            # Generate TUIC Link
+            vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com&allow_insecure=1#{key_tag}"
+            protocol_name = "TUIC-Server"
+            
+        elif protocol == 'vlessplain':
+            # Generate Plain VLESS Link
+            vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            protocol_name = "VLESS + TLS"
+            
+        elif protocol == 'ss_legacy':
+            # Generate Legacy Shadowsocks Link
+            import base64
+            ss_credential = f"{SS_METHOD}:{SS_LEGACY_PASSWORD}"
+            ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_LEGACY_PORT}#{key_tag}"
+            protocol_name = "Shadowsocks (Legacy)"
+            
+        elif protocol == 'admin_tuic':
+            # Generate Admin TUIC Link
+            vpn_link = f"tuic://{uuid}:{uuid}@{SERVER_IP}:8443?congestion_control=bbr&alpn=h3&sni=www.microsoft.com&allow_insecure=1#{key_tag}"
+            protocol_name = "Admin TUIC"
+            
         else:
-            # Generate Shadowsocks Link
+            # Default to Shadowsocks (Standard)
             import base64
             ss_credential = f"{SS_METHOD}:{uuid}"
             ss_encoded = base64.b64encode(ss_credential.encode()).decode()
-            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#VPN-Bot-{user.first_name}-Key{i}"
+            vpn_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#{key_tag}"
             protocol_name = "Shadowsocks"
         
         # Build key info block

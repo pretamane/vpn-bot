@@ -1,0 +1,108 @@
+{
+    "log": {
+        "level": "debug",
+        "timestamp": true
+    },
+    "inbounds": [
+        {
+            "type": "socks",
+            "tag": "socks-admin-tuic",
+            "listen": "127.0.0.1",
+            "listen_port": 10800
+        },
+        {
+            "type": "socks",
+            "tag": "socks-tuic",
+            "listen": "127.0.0.1",
+            "listen_port": 10801
+        },
+        {
+            "type": "socks",
+            "tag": "socks-vless-plain",
+            "listen": "127.0.0.1",
+            "listen_port": 10802
+        },
+        {
+            "type": "socks",
+            "tag": "socks-ss-legacy",
+            "listen": "127.0.0.1",
+            "listen_port": 10803
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "tuic",
+            "tag": "admin-tuic-out",
+            "server": "43.205.90.213",
+            "server_port": 8443,
+            "uuid": "ceb7f843-9082-4346-a8a1-d06bcbc1c87f",
+            "password": "ceb7f843-9082-4346-a8a1-d06bcbc1c87f",
+            "congestion_control": "bbr",
+            "tls": {
+                "enabled": true,
+                "server_name": "www.microsoft.com",
+                "insecure": true,
+                "alpn": [
+                    "h3"
+                ]
+            }
+        },
+        {
+            "type": "tuic",
+            "tag": "tuic-out",
+            "server": "43.205.90.213",
+            "server_port": 2083,
+            "uuid": "f31f6d7c-f674-46b6-a213-ecdaebfc00f0",
+            "password": "f31f6d7c-f674-46b6-a213-ecdaebfc00f0",
+            "congestion_control": "bbr",
+            "tls": {
+                "enabled": true,
+                "server_name": "www.microsoft.com",
+                "insecure": true,
+                "alpn": [
+                    "h3"
+                ]
+            }
+        },
+        {
+            "type": "vless",
+            "tag": "vless-plain-out",
+            "server": "43.205.90.213",
+            "server_port": 8444,
+            "uuid": "11cac765-c1e3-4f09-9eb0-a911825c43ad",
+            "tls": {
+                "enabled": true,
+                "server_name": "www.microsoft.com",
+                "insecure": true
+            }
+        },
+        {
+            "type": "shadowsocks",
+            "tag": "ss-legacy-out",
+            "server": "43.205.90.213",
+            "server_port": 8388,
+            "method": "chacha20-ietf-poly1305",
+            "password": "W+UUieKAlVMtz0JS4RA1u7o2b75dVjBF"
+        }
+    ],
+    "route": {
+        "rules": [
+            {
+                "inbound": "socks-admin-tuic",
+                "outbound": "admin-tuic-out"
+            },
+            {
+                "inbound": "socks-tuic",
+                "outbound": "tuic-out"
+            },
+            {
+                "inbound": "socks-vless-plain",
+                "outbound": "vless-plain-out"
+            },
+            {
+                "inbound": "socks-ss-legacy",
+                "outbound": "ss-legacy-out"
+            }
+        ]
+    }
+}
