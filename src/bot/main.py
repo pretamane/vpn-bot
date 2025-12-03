@@ -309,6 +309,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         # Generate link based on protocol
+        # Generate link based on protocol
         if protocol == 'ss':
             # Generate Shadowsocks link with unique password (UUID)
             import base64
@@ -350,11 +351,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         img.save(bio)
         bio.seek(0)
         
+        # Create Deep Link
+        import urllib.parse
+        encoded_link = urllib.parse.quote(vpn_link)
+        deep_link = f"mmvpn://import?url={encoded_link}"
+        
+        keyboard = [[InlineKeyboardButton("🚀 Import to mmvpn", url=deep_link)]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await update.message.reply_text(
             f"[Key] Your {protocol_name} key is ready!\n\n"
             f"[Link] Copy link:\n`{vpn_link}`\n\n"
             f"[Tip] Only use on 1 device!",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=reply_markup
         )
         await update.message.reply_photo(bio, caption="Scan this QR to import")
         
@@ -450,7 +460,13 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         key_block += f"Status: {status_text}\n"
         key_block += f"Usage: `{usage_gb:.2f} GB` / `{limit_gb} GB`\n"
         key_block += f"Expires: {s['expiry_date'][:10]}\n\n"
-        key_block += f"*Your VPN Link:*\n`{vpn_link}`\n\n"
+        # Create Deep Link
+        import urllib.parse
+        encoded_link = urllib.parse.quote(vpn_link)
+        deep_link = f"mmvpn://import?url={encoded_link}"
+
+        key_block += f"*Your VPN Link:*\n`{vpn_link}`\n"
+        key_block += f"[🚀 Import to mmvpn]({deep_link})\n\n"
         key_block += "━━━━━━━━━━━━━━━\n\n"
         
         # Check if adding this block would exceed limit
