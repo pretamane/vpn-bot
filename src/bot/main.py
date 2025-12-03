@@ -362,6 +362,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(
             f"[Key] Your {protocol_name} key is ready!\n\n"
             f"[Link] Copy link:\n`{vpn_link}`\n\n"
+            f"[🚀 Import to MMVPN App]({deep_link})\n\n"
             f"[Tip] Only use on 1 device!",
             parse_mode="Markdown"
         )
