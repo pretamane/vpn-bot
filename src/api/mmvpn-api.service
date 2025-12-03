@@ -1,0 +1,14 @@
+[Unit]
+Description=MMVPN API Server
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vpn-bot
+ExecStart=/usr/bin/python3 src/api/server.py
+Restart=always
+Environment="DB_PATH=/home/ubuntu/vpn-bot/vpn_bot.db"
+Environment="API_PORT=8000"
+
+[Install]
+WantedBy=multi-user.target

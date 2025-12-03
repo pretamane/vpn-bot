@@ -9,3 +9,5 @@ fastapi
 uvicorn
 python-multipart
 sqlite-web
+fastapi
+uvicorn
