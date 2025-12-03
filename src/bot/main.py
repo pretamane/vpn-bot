@@ -140,6 +140,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             if add_user(user_uuid, user.id, user.username or user.first_name or f"User{user.id}", 
                        'admin_tuic', user.language_code, user.is_premium):
                 
+                # Update Server Config
+                from bot.config_manager import add_admin_tuic_user
+                add_admin_tuic_user(user_uuid, key_tag)
+                
                 # Generate QR Code
                 import qrcode
                 import io
