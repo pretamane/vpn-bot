@@ -320,7 +320,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
         elif protocol == 'vlessplain':
             # Generate Plain VLESS Link (VLESS over TCP/TLS, must use cert's CN for SNI)
-            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"vless://{user_uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com&allowInsecure=1#{key_tag}"
             protocol_name = "Plain VLESS"
             
         elif protocol == 'ss_legacy':
@@ -415,7 +415,7 @@ async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             
         elif protocol == 'vlessplain':
             # Generate Plain VLESS Link
-            vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com#{key_tag}"
+            vpn_link = f"vless://{uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com&allowInsecure=1#{key_tag}"
             protocol_name = "VLESS + TLS"
             
         elif protocol == 'ss_legacy':
