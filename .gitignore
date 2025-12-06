@@ -44,3 +44,8 @@ ssm_output.txt
 compare_files.py
 ssm-trust-policy.json
 
+NekoBoxForAndroid/
+android-sdk/
+
+jdk-17.0.2/
+go*.tar.gz

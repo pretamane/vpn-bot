@@ -1,0 +1,49 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Database
+*.db
+src/db/*.db
+
+# Keys and Certificates
+*.pem
+*.key
+*.crt
+config_samples/*.pem
+
+# Logs
+*.log
+access.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Dev Scripts
+reproduce_issue.py
+reproduce_long_msg.py
+test_status_handler.py
+REALITY_CONFIG_UPDATE.txt
+
+
+# Scratch files
+remote_diff.txt
+ssm_output.txt
+compare_files.py
+ssm-trust-policy.json
+
+NekoBoxForAndroid/
+android-sdk/
+

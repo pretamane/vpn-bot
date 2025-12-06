@@ -1,0 +1,153 @@
+--- src/bot/main.py	2025-12-03 16:46:37.665334547 +0630
++++ remote_backup/src/bot/main.py	2025-12-06 09:16:30.057053131 +0630
+@@ -544,149 +544,4 @@
+         await query.answer("Session expired. Please login again with /admin", show_alert=True)
+         return
+         
+-    await query.answer()
+-    data = query.data
+-    
+-    if data == "admin_close":
+-        await query.message.delete()
+-        context.user_data['admin_authenticated'] = False # Logout
+-        return
+-        
+-    if data == "admin_list_users":
+-        users = get_all_users()
+-        if not users:
+-            await query.edit_message_text("No users found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="admin_home")]]))
+-            return
+-            
+-        msg = "👥 *Registered Users*\n\n"
+-        keyboard = []
+-        
+-        for u in users[:10]: # Show last 10 users
+-            status = "🟢" if u['is_active'] else "🔴"
+-            msg += f"{status} `{u['username'] or u['telegram_id']}`\n"
+-            keyboard.append([InlineKeyboardButton(f"Manage {u['username'] or u['telegram_id']}", callback_data=f"admin_user_{u['uuid']}")])
+-            
+-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="admin_home")])
+-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+-        
+-    elif data == "admin_home":
+-        await show_admin_dashboard(update, context)
+-        
+-    elif data.startswith("admin_user_"):
+-        uuid = data.split("_")[2]
+-        user_data = get_user(uuid)
+-        
+-        if not user_data:
+-            await query.edit_message_text("User not found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="admin_list_users")]]))
+-            return
+-            
+-        status = "Active" if user_data['is_active'] else "Banned"
+-        msg = f"👤 *User Details*\n\n"
+-        msg += f"ID: `{user_data['telegram_id']}`\n"
+-        msg += f"Username: @{user_data['username']}\n"
+-        msg += f"UUID: `{user_data['uuid']}`\n"
+-        msg += f"Status: {status}\n"
+-        msg += f"Limit: {user_data['data_limit_gb']} GB\n"
+-        
+-        keyboard = [
+-            [InlineKeyboardButton("🔑 Show Keys", callback_data=f"admin_keys_{uuid}")],
+-            [InlineKeyboardButton("🚫 Ban" if user_data['is_active'] else "✅ Unban", callback_data=f"admin_toggle_{uuid}")],
+-            [InlineKeyboardButton("🗑️ Delete", callback_data=f"admin_delete_{uuid}")],
+-            [InlineKeyboardButton("🔙 Back", callback_data="admin_list_users")]
+-        ]
+-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+-        
+-    elif data.startswith("admin_keys_"):
+-        uuid = data.split("_")[2]
+-        user_data = get_user(uuid)
+-        
+-        if not user_data:
+-            await query.answer("User not found", show_alert=True)
+-            return
+-            
+-        # Generate VLESS Link
+-        vless_link = f"vless://{uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#VPN-Bot-{user_data['username'] or 'User'}"
+-        
+-        # Generate SS Link
+-        import base64
+-        ss_credential = f"{SS_METHOD}:{uuid}"
+-        ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+-        ss_link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#VPN-Bot-{user_data['username'] or 'User'}"
+-        
+-        msg = f"🔑 *Keys for {user_data['username'] or user_data['telegram_id']}*\n\n"
+-        msg += f"**VLESS+REALITY:**\n`{vless_link}`\n\n"
+-        msg += f"**Shadowsocks:**\n`{ss_link}`\n\n"
+-        msg += "_Note: Check which protocol the user actually purchased._"
+-        
+-        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data=f"admin_user_{uuid}")]]
+-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+-
+-    elif data.startswith("admin_toggle_"):
+-        uuid = data.split("_")[2]
+-        user_data = get_user(uuid)
+-        if user_data['is_active']:
+-            deactivate_user(uuid)
+-        else:
+-            activate_user(uuid)
+-        
+-        # Refresh view
+-        await handle_admin_callback(update, context) 
+-        
+-    elif data.startswith("admin_delete_"):
+-        uuid = data.split("_")[2]
+-        from bot.config_manager import remove_ss_user, remove_vless_user
+-        remove_ss_user(uuid)
+-        remove_vless_user(uuid)
+-        delete_user(uuid)
+-        await query.answer("User deleted", show_alert=True)
+-        
+-        # Go back to list
+-        update.callback_query.data = "admin_list_users"
+-        await handle_admin_callback(update, context)
+-
+-    elif data == "admin_stats":
+-        import psutil
+-        cpu = psutil.cpu_percent()
+-        ram = psutil.virtual_memory().percent
+-        disk = psutil.disk_usage('/').percent
+-        
+-        msg = "📊 *System Stats*\n\n"
+-        msg += f"CPU: {cpu}%\n"
+-        msg += f"RAM: {ram}%\n"
+-        msg += f"Disk: {disk}%\n"
+-        
+-        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="admin_home")]]
+-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+-
+-def main() -> None:
+-    """Start the bot."""
+-    # Initialize DB
+-    init_db()
+-    
+-    application = Application.builder().token(BOT_TOKEN).build()
+-
+-    application.add_handler(CommandHandler("start", start))
+-    application.add_handler(CommandHandler("buy", buy))
+-    application.add_handler(CommandHandler("help", help_command))
+-    application.add_handler(CommandHandler("status", handle_status))
+-    application.add_handler(CommandHandler("admin", admin_command))
+-    
+-    # Handle protocol selection callbacks
+-    application.add_handler(CallbackQueryHandler(handle_protocol_choice, pattern="^protocol_"))
+-    
+-    # Handle main menu callbacks
+-    application.add_handler(CallbackQueryHandler(handle_menu_callback, pattern="^menu_"))
+-    
+-    # Handle admin callbacks
+-    application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern="^admin_"))
+-    
+-    # Handle photos for payment verification
+-    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+-    
+-    # Handle text messages (password verification, etc) - using function defined earlier
+-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+-
+-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+-
+-if __name__ == "__main__":
+-    main()
++    --output truncated--
