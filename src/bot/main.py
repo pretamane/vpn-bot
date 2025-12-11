@@ -76,7 +76,8 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
     # Map protocol codes to display names
     protocol_map = {
         "ss": "Shadowsocks (9388) -> Sing-Box",
-        "vless": "VLESS Reality (443) -> Sing-Box",
+        "vless": "VLESS Reality (Unlimited) -> Sing-Box",
+        "vless_limited": "VLESS Limited (12 Mbps) -> Sing-Box",
         "tuic": "TUIC-Server (2083) -> Sing-Box",
         "vlessplain": "VLESS + TLS (8444) -> Sing-Box",
         "ss_legacy": "Shadowsocks (8388) -> Sing-Box"
@@ -94,7 +95,8 @@ async def handle_protocol_choice(update: Update, context: ContextTypes.DEFAULT_T
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send payment instructions and protocol selection."""
     keyboard = [
-        [InlineKeyboardButton("VLESS Reality (443) -> Sing-Box", callback_data="protocol_vless")],
+        [InlineKeyboardButton("VLESS Reality (Unlimited)", callback_data="protocol_vless")],
+        [InlineKeyboardButton("VLESS Limited (12 Mbps)", callback_data="protocol_vless_limited")],
         [InlineKeyboardButton("ShadowSocks (9388) -> Sing-Box", callback_data="protocol_ss")],
         [InlineKeyboardButton("TUIC-Server (2083) -> Sing-Box", callback_data="protocol_tuic")],
         [InlineKeyboardButton("VLESS + TLS (8444) -> Sing-Box", callback_data="protocol_vlessplain")],
@@ -287,9 +289,23 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if add_user(user_uuid, user.id, db_username, protocol, user.language_code, user.is_premium):
         # Update Sing-Box config based on protocol
         try:
-            if protocol == 'vless':
+            if protocol == 'vless' or protocol == 'vless_limited':
                 from bot.config_manager import add_user_to_config
-                add_user_to_config(user_uuid, key_tag)
+                from db.database import get_db_connection
+                
+                # Determine limit based on protocol
+                limit_mbps = 0
+                if protocol == 'vless_limited':
+                    limit_mbps = 12.0
+                
+                # Update DB with limit (since add_user uses default)
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("UPDATE users SET speed_limit_mbps = ? WHERE uuid = ?", (limit_mbps, user_uuid))
+                conn.commit()
+                conn.close()
+                
+                add_user_to_config(user_uuid, key_tag, limit_mbps)
             elif protocol == 'tuic':
                 from bot.config_manager import add_tuic_user
                 add_tuic_user(user_uuid, key_tag)
@@ -544,4 +560,4 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer("Session expired. Please login again with /admin", show_alert=True)
         return
         
-    --output truncated--
+

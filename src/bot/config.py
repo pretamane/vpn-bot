@@ -34,6 +34,7 @@ SS_LEGACY_PASSWORD = os.getenv("SS_LEGACY_PASSWORD", "W+UUieKAlVMtz0JS4RA1u7o2b7
 # Additional Protocols
 TUIC_PORT = int(os.getenv("TUIC_PORT", "2083"))
 VLESS_PLAIN_PORT = int(os.getenv("VLESS_PLAIN_PORT", "8444"))
+LIMITED_PORT = int(os.getenv("LIMITED_PORT", "10001"))
 
 # User Limits
 MAX_KEYS_PER_USER = int(os.getenv("MAX_KEYS_PER_USER", "1"))

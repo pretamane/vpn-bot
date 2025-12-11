@@ -8,7 +8,7 @@ import uvicorn
 import uuid
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from src.db.database import get_user_by_email, add_user, get_user, get_daily_usage, is_in_grace_period, get_grace_period_remaining
+from src.db.database import get_user_by_email, get_user_by_phone, add_user, get_user, get_daily_usage, is_in_grace_period, get_grace_period_remaining
 
 # Database setup
 DB_PATH = os.getenv("DB_PATH", "src/db/vpn_bot.db")
@@ -33,6 +33,9 @@ class UserStatus(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     token: str
+
+class PhoneLoginRequest(BaseModel):
+    phone: str
 
 class VpnKey(BaseModel):
     user_uuid: str
@@ -97,18 +100,18 @@ async def get_user_keys(user_uuid: str):
                    created_at, expires_at
             FROM vpn_keys 
             WHERE user_uuid = ? AND is_active = 1
-            ORDER BY created_at DESC
+            ORDER BY 
+              CASE WHEN protocol = 'vless_limited' THEN 1 ELSE 0 END ASC,
+              created_at DESC
         """, (user_uuid,))
         keys = cursor.fetchall()
         
         result_keys = []
         for k in keys:
+            k_dict = dict(k)
             tag = "[Free]" if k['protocol'] == 'vless_limited' else "[Premium]"
-            result_keys.append({
-                "key_name": f"{k['key_name']} {tag}",
-                "config_link": k['config_link'],
-                "protocol": k['protocol']
-            })
+            k_dict['key_name'] = f"{k['key_name']} {tag}"
+            result_keys.append(k_dict)
             
         return {"keys": result_keys}
     finally:
@@ -173,7 +176,9 @@ async def google_login(request: GoogleLoginRequest):
         cursor.execute("""
             SELECT config_link, key_uuid, protocol, created_at FROM vpn_keys 
             WHERE user_uuid = ? AND is_active = 1
-            ORDER BY created_at DESC
+            ORDER BY 
+              CASE WHEN protocol = 'vless_limited' THEN 1 ELSE 0 END ASC,
+              created_at DESC
         """, (user_uuid,))
         existing_keys = cursor.fetchall()
         
@@ -322,8 +327,8 @@ async def google_login(request: GoogleLoginRequest):
                     conn.close()
                     print(f"[AUTO_PROVISION] Created new key for {email}")
                     
-                    # Add the new key to the list and set it as primary UUID
-                    vpn_key_links.insert(0, vpn_key_link)
+                    # Add the new key to the end of the list
+                    vpn_key_links.append(vpn_key_link)
                     key_uuid_to_return = new_key_uuid
 
             except Exception as e:
@@ -338,6 +343,182 @@ async def google_login(request: GoogleLoginRequest):
     except ValueError as e:
         print(f"Token verification failed: {e}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    except Exception as e:
+        print(f"Server error: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/auth/phone")
+async def phone_login(request: PhoneLoginRequest):
+    try:
+        phone = request.phone
+        if not phone:
+            raise HTTPException(status_code=400, detail="Phone number required")
+            
+        # Check if user exists
+        user = get_user_by_phone(phone)
+        
+        if user:
+            user_uuid = user['uuid']
+            email = user['email'] or f"{phone}@phone.com" # Fallback email
+        else:
+            # Create new user
+            user_uuid = str(uuid.uuid4())
+            email = f"{phone}@phone.com" # Placeholder email
+            # Default values for new users
+            success = add_user(
+                uuid=user_uuid,
+                telegram_id=0, 
+                username=phone, # Use phone as username
+                email=email,
+                protocol='account', 
+                expiry_days=30,
+                is_premium=False,
+                phone=phone
+            )
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to create user")
+
+        # Check for existing keys (fetch ALL active keys)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT config_link, key_uuid, protocol, created_at FROM vpn_keys 
+            WHERE user_uuid = ? AND is_active = 1
+            ORDER BY 
+              CASE WHEN protocol = 'vless_limited' THEN 1 ELSE 0 END ASC,
+              created_at DESC
+        """, (user_uuid,))
+        existing_keys = cursor.fetchall()
+        
+        # Also fetch keys from users table (for old keys not in vpn_keys)
+        cursor.execute("""
+            SELECT uuid, protocol, username, created_at FROM users 
+            WHERE phone = ? AND is_active = 1
+        """, (phone,))
+        old_keys = cursor.fetchall()
+        conn.close()
+
+        vpn_key_links = []
+        key_uuid_to_return = None
+        vless_limited_found = False
+        
+        # Track added UUIDs to avoid duplicates
+        added_uuids = set()
+
+        # Smart Default Logic
+        all_valid_keys = []
+        
+        # Add existing keys from vpn_keys table
+        if existing_keys:
+            for k in existing_keys:
+                if k['key_uuid'] not in added_uuids:
+                    vpn_key_links.append(k['config_link'])
+                    added_uuids.add(k['key_uuid'])
+                    all_valid_keys.append({
+                        'uuid': k['key_uuid'],
+                        'protocol': k['protocol'],
+                        'created_at': k['created_at'] if 'created_at' in k.keys() else '',
+                        'source': 'vpn_keys'
+                    })
+
+        # Add old keys from users table
+        if old_keys:
+            from src.bot.config import SERVER_IP, SERVER_PORT, PUBLIC_KEY, SHORT_ID, SS_SERVER, SS_PORT, SS_METHOD, TUIC_PORT, VLESS_PLAIN_PORT, SERVER_NAME, SS_LEGACY_PORT, SS_LEGACY_PASSWORD, LIMITED_PORT
+            import base64
+            
+            for k in old_keys:
+                k_uuid = k['uuid']
+                if k_uuid not in added_uuids:
+                    # Reconstruct link
+                    proto = k['protocol']
+                    link = None
+                    key_tag = k['username']
+                    
+                    if proto == 'vless':
+                        link = f"vless://{k_uuid}@{SERVER_IP}:{SERVER_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=randomized&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{key_tag}"
+                    elif proto == 'vless_limited':
+                        link = f"vless://{k_uuid}@{SERVER_IP}:{LIMITED_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=randomized&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{key_tag}"
+                    elif proto == 'ss':
+                        ss_credential = f"{SS_METHOD}:{k_uuid}"
+                        ss_encoded = base64.b64encode(ss_credential.encode()).decode()
+                        link = f"ss://{ss_encoded}@{SS_SERVER}:{SS_PORT}#{key_tag}"
+                    elif proto == 'tuic':
+                        link = f"tuic://{k_uuid}:{k_uuid}@{SERVER_IP}:{TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=www.microsoft.com&allow_insecure=1#{key_tag}"
+                    elif proto == 'vlessplain':
+                        link = f"vless://{k_uuid}@{SERVER_IP}:{VLESS_PLAIN_PORT}?security=tls&encryption=none&type=tcp&sni=www.microsoft.com&allowInsecure=1#{key_tag}"
+                    
+                    if link:
+                        vpn_key_links.append(link)
+                        added_uuids.add(k_uuid)
+                        all_valid_keys.append({
+                            'uuid': k_uuid,
+                            'protocol': proto,
+                            'created_at': k['created_at'] if 'created_at' in k.keys() else '',
+                            'source': 'users'
+                        })
+
+        premium_keys = [k for k in all_valid_keys if k['protocol'] != 'vless_limited']
+        limited_keys = [k for k in all_valid_keys if k['protocol'] == 'vless_limited']
+        
+        if premium_keys:
+            key_uuid_to_return = premium_keys[0]['uuid']
+            vless_limited_found = True
+        elif limited_keys:
+            key_uuid_to_return = limited_keys[0]['uuid']
+            vless_limited_found = True
+        else:
+            vless_limited_found = False
+            key_uuid_to_return = None
+
+        if not vless_limited_found:
+            # Auto-provision new vless_limited key
+            try:
+                import uuid as uuid_lib
+                from src.bot.config import SERVER_IP, PUBLIC_KEY, SHORT_ID, SERVER_NAME, LIMITED_PORT
+                from src.bot.config_manager import add_user_to_config
+                
+                new_key_uuid = str(uuid_lib.uuid4())
+                key_uuid_to_return = new_key_uuid
+                
+                import time
+                key_tag = f"User-{int(time.time())}"
+                
+                # Add to system (users table for key tracking)
+                if add_user(new_key_uuid, 0, phone, 'vless_limited', 'en', False, speed_limit_mbps=12.0, data_limit_gb=3.0, phone=phone):
+                    
+                    # Add to Sing-Box Config
+                    add_user_to_config(new_key_uuid, key_tag, limit_mbps=12.0)
+                    
+                    # Generate Link
+                    vpn_key_link = f"vless://{new_key_uuid}@{SERVER_IP}:{LIMITED_PORT}?security=reality&encryption=none&pbk={PUBLIC_KEY}&fp=randomized&type=tcp&flow=xtls-rprx-vision&sni={SERVER_NAME}&sid={SHORT_ID}#{key_tag}"
+                    
+                    # Save to vpn_keys
+                    from datetime import datetime, timedelta
+                    expires_at = (datetime.now() + timedelta(days=30)).isoformat()
+                    
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO vpn_keys (user_uuid, key_name, protocol, server_address, server_port,
+                                              key_uuid, config_link, expires_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (user_uuid, key_tag, 'vless_limited', SERVER_IP, LIMITED_PORT,
+                          new_key_uuid, vpn_key_link, expires_at))
+                    conn.commit()
+                    conn.close()
+                    print(f"[AUTO_PROVISION] Created new key for {phone}")
+                    
+                    vpn_key_links.append(vpn_key_link)
+                    key_uuid_to_return = new_key_uuid
+
+            except Exception as e:
+                print(f"[AUTO_PROVISION] Failed: {e}")
+                pass
+
+        final_key_string = "\n".join(vpn_key_links) if vpn_key_links else None
+
+        return {"uuid": user_uuid, "email": email, "key": final_key_string, "key_uuid": key_uuid_to_return}
+
     except Exception as e:
         print(f"Server error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

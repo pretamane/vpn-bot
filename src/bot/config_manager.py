@@ -73,72 +73,102 @@ def save_config(config):
 
 
 
-def add_user_to_config(uuid, email):
+def add_user_to_config(uuid, email, limit_mbps=0):
     """Wrapper to handle locking and reloading separately."""
     should_reload = False
     with FileLock():
-        should_reload = _add_user_to_config_internal(uuid, email)
+        should_reload = _add_user_to_config_internal(uuid, email, limit_mbps)
     
     if should_reload:
         reload_service()
         return True
     return False
 
-def _add_user_to_config_internal(uuid, email):
+def _add_user_to_config_internal(uuid, email, limit_mbps=0):
     config = load_config()
     
-    # Add to inbound users
-    try:
-        inbound = config['inbounds'][0] # Assuming first inbound is VLESS
-        users = inbound.get('users', [])
+    # Determine target inbound based on limit
+    # Default to main inbound (vless-in)
+    target_tag = "vless-in"
+    
+    # If limit is set (e.g. 12 Mbps), use limited inbound
+    if limit_mbps > 0 and limit_mbps <= 12.0: 
+        target_tag = "vless-limited-in"
         
-        # Check if user already exists
-        for user in users:
-            if user['uuid'] == uuid:
-                return False
-                
-        users.append({
-            "uuid": uuid,
-            "flow": "xtls-rprx-vision",
-            "name": email # Optional, for identification
-        })
-        inbound['users'] = users
-        
-        # Add to API stats users if enabled
-        if 'experimental' in config and 'v2ray_api' in config['experimental']:
-            stats_users = config['experimental']['v2ray_api']['stats'].get('users', [])
-            if uuid not in stats_users:
-                stats_users.append(uuid)
-                config['experimental']['v2ray_api']['stats']['users'] = stats_users
-                
-        save_config(config)
-        
-        # VERIFY the key was actually added
-        verify_config = load_config()
-        found = False
-        if 'inbounds' in verify_config and len(verify_config['inbounds']) > 0:
-            for user in verify_config['inbounds'][0].get('users', []):
+    print(f"Adding user {email} to inbound: {target_tag} (Limit: {limit_mbps} Mbps)")
+
+    # Find the target inbound
+    target_inbound = None
+    for inbound in config['inbounds']:
+        if inbound.get('tag') == target_tag:
+            target_inbound = inbound
+            break
+            
+    # Fallback to first VLESS if tag not found (backward compatibility)
+    if not target_inbound:
+        print(f"Warning: Inbound with tag '{target_tag}' not found. Falling back to first VLESS inbound.")
+        for inbound in config['inbounds']:
+             if inbound['type'] == 'vless':
+                target_inbound = inbound
+                break
+    
+    if not target_inbound:
+        print("Error: No VLESS inbound found in config.")
+        return False
+
+    users = target_inbound.get('users', [])
+    
+    # Remove user from ALL VLESS inbounds to ensure they are only in the target one
+    # This handles moving users between limited and unlimited inbounds
+    for inbound in config['inbounds']:
+        if inbound['type'] == 'vless' and 'users' in inbound:
+            original_count = len(inbound['users'])
+            inbound['users'] = [u for u in inbound['users'] if u['uuid'] != uuid]
+            if len(inbound['users']) < original_count:
+                print(f"Removed user {uuid} from inbound {inbound.get('tag')} (Moving to {target_tag})")
+
+    # Check if user already exists in target (should be gone now, but safety check)
+    users = target_inbound.get('users', [])
+    for user in users:
+        if user['uuid'] == uuid:
+            # Should not happen due to removal above, but if it does, update name
+            user['name'] = email
+            save_config(config)
+            return True
+            
+    users.append({
+        "uuid": uuid,
+        "flow": "xtls-rprx-vision",
+        "name": email
+    })
+    target_inbound['users'] = users
+    
+    # Add to API stats users if enabled
+    if 'experimental' in config and 'v2ray_api' in config['experimental']:
+        stats_users = config['experimental']['v2ray_api']['stats'].get('users', [])
+        if uuid not in stats_users:
+            stats_users.append(uuid)
+            config['experimental']['v2ray_api']['stats']['users'] = stats_users
+            
+    save_config(config)
+    
+    # VERIFY
+    verify_config = load_config()
+    found = False
+    for inbound in verify_config.get('inbounds', []):
+        if inbound.get('tag') == target_tag:
+            for user in inbound.get('users', []):
                 if user.get('uuid') == uuid:
                     found = True
                     break
-        
-        if not found:
-            error_msg = f"CRITICAL: VLESS user {email} NOT found in config after save!"
-            print(error_msg)
-            with open('/tmp/config_manager_errors.log', 'a') as log:
-                import datetime
-                log.write(f"{datetime.datetime.now()}: {error_msg}\n")
-            return False
-        
-        print(f"✓ VLESS user {email} verified in config")
-        return True
-    except (KeyError, IndexError) as e:
-        error_msg = f"Error updating VLESS config for {email}: {e}"
+    
+    if not found:
+        error_msg = f"CRITICAL: VLESS user {email} NOT found in {target_tag} after save!"
         print(error_msg)
-        with open('/tmp/config_manager_errors.log', 'a') as log:
-            import datetime
-            log.write(f"{datetime.datetime.now()}: {error_msg}\n")
         return False
+    
+    print(f"✓ VLESS user {email} verified in {target_tag}")
+    return True
 
 def add_ss_user(password, name):
     """Add a Shadowsocks user with unique password for tracking."""
