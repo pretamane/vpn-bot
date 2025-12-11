@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 2c2b6dc1a839d24b08f3d8f384e4a88e84f1bfd2 pretamane <thawzin252467@gmail.com> 1764741942 +0630	clone: from https://github.com/MatsuriDayo/NekoBoxForAndroid.git
+2c2b6dc1a839d24b08f3d8f384e4a88e84f1bfd2 5a23cb9b0b909f47756dcd94697aaa03b1dc2caf pretamane <thawzin252467@gmail.com> 1765434885 +0630	commit: feat: Implement VPN key import substitution, auto-reconnect, and status panel UUID prioritization

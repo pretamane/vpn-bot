@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "771136278833",
+    "project_id": "gen-lang-client-0087898455",
+    "storage_bucket": "gen-lang-client-0087898455.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:771136278833:android:6c480fead095d40eeb6010",
+        "android_client_info": {
+          "package_name": "io.nekohasekai.sagernet"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "771136278833-3qduhe5e49bm24sti1pupr633ure289h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZKlKAzTBdu_R4UoaSmk0Ehq6BOeu23xg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "771136278833-3qduhe5e49bm24sti1pupr633ure289h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

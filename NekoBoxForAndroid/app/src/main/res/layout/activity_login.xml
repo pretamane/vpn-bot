@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="32dp">
+
+    <!-- Main content centered -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@mipmap/ic_launcher"
+            android:layout_marginBottom="48dp"/>
+
+        <TextView
+            android:id="@+id/welcome_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Welcome to MMVPN"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="@color/material_pink_500"
+            android:layout_marginBottom="32dp"/>
+
+        <ImageView
+            android:id="@+id/login_avatar"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/continue_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Continue"
+            android:textColor="@color/material_pink_500"
+            app:strokeColor="@color/material_pink_500"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/switch_account_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sign in with another account"
+            android:textColor="@color/material_pink_500"
+            app:strokeColor="@color/material_pink_500"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/sign_in_button"
+            android:layout_width="280dp"
+            android:layout_height="56dp"
+            android:text="Sign in with Google"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textAllCaps="false"
+            android:gravity="center"
+            app:icon="@drawable/googleg_standard_color_18"
+            app:iconGravity="start"
+            app:iconPadding="16dp"
+            app:iconTint="@null"
+            app:cornerRadius="8dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?colorAccent"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/sign_in_phone_button"
+            android:layout_width="280dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="16dp"
+            android:text="Sign in with Phone"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textAllCaps="false"
+            android:gravity="center"
+            app:icon="@drawable/ic_baseline_phone_24"
+            app:iconGravity="start"
+            app:iconPadding="16dp"
+            app:iconTint="@android:color/white"
+            app:cornerRadius="8dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?colorAccent"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+    </LinearLayout>
+
+    <!-- Credit line at bottom -->
+    <TextView
+        android:id="@+id/credit_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:text="Wrapped over NekoBox"
+        android:textSize="12sp"
+        android:textColor="@android:color/darker_gray"
+        android:alpha="0.7"
+        android:layout_marginBottom="16dp"/>
+
+</RelativeLayout>
