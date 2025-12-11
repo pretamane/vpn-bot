@@ -16,11 +16,13 @@ class ConnectionTestNotification(val context: Context, val title: String) {
                 SagerNet.notification.cancel(notificationId)
                 return
             }
-            val builder = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_service_active)
-                .setContentTitle(title)
-                .setOnlyAlertOnce(true)
-                .setContentText("$progress / $max").setProgress(max, progress, false)
+            val builder =
+                    NotificationCompat.Builder(context, channelId)
+                            .setSmallIcon(R.mipmap.ic_launcher)
+                            .setContentTitle(title)
+                            .setOnlyAlertOnce(true)
+                            .setContentText("$progress / $max")
+                            .setProgress(max, progress, false)
             SagerNet.notification.notify(notificationId, builder.build())
         } catch (e: Exception) {
             Logs.w(e)
