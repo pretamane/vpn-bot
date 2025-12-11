@@ -150,6 +150,18 @@
             app:iconGravity="start"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_update_app"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Check for Update"
+            android:textColor="@android:color/white"
+            app:strokeColor="@android:color/white"
+            app:icon="@drawable/ic_baseline_update_24"
+            app:iconGravity="start"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
     </LinearLayout>
 
 </LinearLayout>

@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
@@ -39,6 +40,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import io.nekohasekai.sagernet.BuildConfig
+import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
+import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import libcore.Libcore
+import moe.matsuri.nb4a.utils.Util
+import org.json.JSONObject
+import androidx.core.net.toUri
 
 class MMVPNStatusFragment : ToolbarFragment(), SagerConnection.Callback {
     private lateinit var statusText: TextView
@@ -115,6 +123,9 @@ class MMVPNStatusFragment : ToolbarFragment(), SagerConnection.Callback {
                 updateConnectButtonState()
             }
         }
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_update_app)
+                .setOnClickListener { checkUpdate() }
 
         fetchStatus()
         fetchBotConfig()
@@ -414,7 +425,27 @@ class MMVPNStatusFragment : ToolbarFragment(), SagerConnection.Callback {
             }
 
             val profile = ProfileManager.getProfile(profileId)
-            val uuid = profile?.uuid
+
+            // Determine which UUID to use for status check
+            // 1. Try to get UUID from the specific proxy config (Bean)
+            var uuid: String? = null
+            if (profile != null) {
+                try {
+                    val bean = profile.requireBean()
+                    if (bean is io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean) {
+                        uuid = bean.uuid
+                    } else if (bean is io.nekohasekai.sagernet.fmt.tuic.TuicBean) {
+                        uuid = bean.uuid
+                    }
+                } catch (e: Exception) {
+                    // Ignore bean errors
+                }
+
+                // 2. Fallback to the Profile's "Master UUID" if bean didn't have one
+                if (uuid.isNullOrEmpty()) {
+                    uuid = profile.uuid
+                }
+            }
 
             if (uuid.isNullOrEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -796,23 +827,9 @@ class MMVPNStatusFragment : ToolbarFragment(), SagerConnection.Callback {
             val proxy = proxies[0]
             currentProfile.putBean(proxy)
 
-            // Preserve or update UUID
-            // Prioritize UUID from the proxy config (if available)
-            var finalUuid: String? = null
-            if (proxy is io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean) {
-                finalUuid = proxy.uuid
-            } else if (proxy is io.nekohasekai.sagernet.fmt.tuic.TuicBean) {
-                finalUuid = proxy.uuid
-            }
-
-            // Fallback to passed userUuid if proxy didn't have one
-            if (finalUuid.isNullOrEmpty()) {
-                finalUuid = userUuid
-            }
-
-            if (!finalUuid.isNullOrEmpty()) {
-                currentProfile.uuid = finalUuid
-            }
+            // DO NOT overwrite the Profile UUID with the Proxy UUID.
+            // We need to keep the "Master UUID" (User UUID) for "Retrieve Keys" to work.
+            // The Proxy UUID will be used by fetchStatus() via profile.requireBean()
 
             ProfileManager.updateProfile(currentProfile)
             targetProfileId = currentProfile.id
@@ -868,14 +885,69 @@ class MMVPNStatusFragment : ToolbarFragment(), SagerConnection.Callback {
                 android.util.Log.d("KeysDebug", "Calling reloadService")
                 io.nekohasekai.sagernet.SagerNet.reloadService()
             } else {
-                MaterialAlertDialogBuilder(context)
-                        .setTitle("Import Successful")
-                        .setMessage(message)
-                        .setPositiveButton("OK", null)
-                        .show()
+                // Auto-start VPN if not running
+                Toast.makeText(context, "Starting VPN...", Toast.LENGTH_SHORT).show()
+                connect.launch(null)
             }
             // Refresh status to show new profile details
             fetchStatus()
+        }
+    }
+
+    private fun checkUpdate() {
+        runOnIoDispatcher {
+            try {
+                val client =
+                        Libcore.newHttpClient().apply {
+                            modernTLS()
+                            trySocks5(DataStore.mixedPort)
+                        }
+                val response = client.newRequest().apply {
+                    setURL("https://api.github.com/repos/pretamane/vpn-bot/releases/latest")
+                }.execute()
+
+                val jsonStr = Util.getStringBox(response.contentString)
+                val json = JSONObject(jsonStr)
+
+                if (json.has("message") && json.getString("message") == "Not Found") {
+                    runOnMainDispatcher {
+                        Toast.makeText(context, "No releases found on GitHub. Please create a release.", Toast.LENGTH_LONG).show()
+                    }
+                    return@runOnIoDispatcher
+                }
+
+                val releaseName = json.getString("name")
+                val releaseUrl = json.getString("html_url")
+
+
+                
+                // Simple check: if release name is different from current version
+                val haveUpdate = releaseName.isNotBlank() && !releaseName.contains(BuildConfig.VERSION_NAME)
+
+                runOnMainDispatcher {
+                    if (haveUpdate) {
+                        val context = requireContext()
+                        MaterialAlertDialogBuilder(context)
+                                .setTitle(R.string.update_dialog_title)
+                                .setMessage(
+                                        "Current: ${SagerNet.appVersionNameForDisplay}\nLatest: $releaseName\n\nA new version is available!"
+                                )
+                                .setPositiveButton(R.string.yes) { _, _ ->
+                                    val intent = Intent(Intent.ACTION_VIEW, releaseUrl.toUri())
+                                    context.startActivity(intent)
+                                }
+                                .setNegativeButton(R.string.no, null)
+                                .show()
+                    } else {
+                        Toast.makeText(context, R.string.check_update_no, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnMainDispatcher {
+                    Toast.makeText(context, "Update check failed: ${e.message}", Toast.LENGTH_SHORT)
+                            .show()
+                }
+            }
         }
     }
 }

@@ -120,14 +120,14 @@ class MainActivity : ThemedActivity(),
             if (navId != -1) {
                 displayFragmentWithId(navId)
             } else {
-                displayFragmentWithId(R.id.nav_configuration)
+                displayFragmentWithId(R.id.nav_mmvpn_status)
             }
         }
         onBackPressedDispatcher.addCallback {
-            if (supportFragmentManager.findFragmentById(R.id.fragment_holder) is ConfigurationFragment) {
+            if (supportFragmentManager.findFragmentById(R.id.fragment_holder) is MMVPNStatusFragment) {
                 moveTaskToBack(true)
             } else {
-                displayFragmentWithId(R.id.nav_configuration)
+                displayFragmentWithId(R.id.nav_mmvpn_status)
             }
         }
 
