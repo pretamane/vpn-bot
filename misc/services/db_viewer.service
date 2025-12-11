@@ -1,0 +1,15 @@
+[Unit]
+Description=MMVPN DB Viewer
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vpn-bot
+Environment="DB_PATH=/home/ubuntu/vpn-bot/src/db/vpn_bot.db"
+ExecStart=/usr/bin/python3 /home/ubuntu/vpn-bot/db_viewer.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
